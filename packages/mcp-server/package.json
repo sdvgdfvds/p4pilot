@@ -1,0 +1,32 @@
+{
+  "name": "@p4pilot/mcp-server",
+  "version": "0.0.0",
+  "description": "MCP server exposing Perforce-native tools for AI coding agents.",
+  "license": "MIT",
+  "author": "p4pilot contributors",
+  "type": "module",
+  "bin": {
+    "p4pilot-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@p4pilot/core": "*",
+    "zod": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.0"
+  }
+}
