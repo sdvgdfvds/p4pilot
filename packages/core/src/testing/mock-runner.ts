@@ -103,6 +103,10 @@ export class MockP4Runner implements P4Runner {
         return this.runDescribe(commandArgs);
       case "change":
         return this.runChange(commandArgs, opts);
+      case "sync":
+        return this.runSync(commandArgs);
+      case "filelog":
+        return this.runFilelog(commandArgs);
       default:
         return failure(`Unsupported mock p4 command: ${command ?? ""}`);
     }
@@ -308,6 +312,42 @@ export class MockP4Runner implements P4Runner {
     });
 
     return success(formatRecords([[["change", nextChange]]]));
+  }
+
+  private runSync(_args: string[]): P4Result {
+    const records: ZtagField[][] = this.#state.files
+      .filter((file) => file.headRev !== undefined)
+      .map((file) => [
+        ["depotFile", file.depotFile],
+        ["rev", file.headRev],
+      ]);
+    return success(formatRecords(records));
+  }
+
+  private runFilelog(args: string[]): P4Result {
+    const files: string[] = [];
+    for (let index = 1; index < args.length; index += 1) {
+      const argument = args[index];
+      if (argument === "-m") {
+        index += 1;
+      } else if (argument !== undefined && !argument.startsWith("-")) {
+        files.push(argument);
+      }
+    }
+    const requested = files[0];
+    const file = requested === undefined ? undefined : this.findFile(requested);
+    if (file === undefined || file.headRev === undefined) {
+      return failure(`${requested ?? ""} - no such file(s).`);
+    }
+    const fields: ZtagField[] = [
+      ["depotFile", file.depotFile],
+      ["rev0", file.headRev],
+      ["change0", "1"],
+      ["action0", "add"],
+      ["user0", this.#state.user],
+      ["desc0", "initial revision"],
+    ];
+    return success(formatRecords([fields]));
   }
 
   private fileStatFields(file: FakeFile): ZtagField[] {

@@ -44,7 +44,9 @@ export class ExecaP4Runner implements P4Runner {
       return {
         stdout: result.stdout,
         stderr: result.stderr,
-        exitCode: result.exitCode,
+        // execa returns `undefined` exitCode when the process is killed by a
+        // signal; treat that as a non-zero failure for p4pilot's 0=success rule.
+        exitCode: result.exitCode ?? 1,
       };
     } catch (error: unknown) {
       if (
