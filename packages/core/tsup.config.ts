@@ -5,4 +5,7 @@ export default defineConfig({
   format: ["esm", "cjs"],
   dts: true,
   clean: true,
+  // Use a non-composite tsconfig for the build/dts step; the composite
+  // tsconfig.json is reserved for the solution-style `tsc -b` typecheck.
+  tsconfig: "tsconfig.build.json",
 });
