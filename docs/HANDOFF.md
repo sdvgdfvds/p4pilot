@@ -1,90 +1,100 @@
 # p4pilot — 会话交接 / 续接指南 (Session Handoff)
 
-> 这份文档就是"保存的会话"。下次回来先读它,即可无缝继续。
+> 下次回来先读这份。项目现在由 **Claude 用 Matt Pocock `tdd` 技能亲自 TDD 构建**
+> （Codex 已弃用——两次都在读文件/规划阶段卡死；GPT-手动交接方案也已放弃）。
 
-**暂停时间**：2026-07-15
-**项目位置**：`D:\Downloads\p4pilot`
-**Git 分支**：`master`
+**更新时间**：2026-07-15（晚，用户吃饭前）
+**项目位置**：`D:\Downloads\p4pilot`　**分支**：`master`
 
 ---
 
 ## 一句话状态
 
-图纸（SPEC / PLAN / AGENTS / README + 工作区脚手架）**已全部完成并提交**；
-`core` 包代码**尚未开始**（首次派发的 Codex 任务在"读取 SPEC / 规划"阶段卡死，
-零产出，已终止）。**下次从"重新派发 Codex 构建 core"继续即可。**
+`@p4pilot/core` **已全部完成并提交**（34 个测试全绿）；`@p4pilot/mcp-server`
+的 **Task 2.1 骨架已完成并提交**（server + `p4_status` 工具 + `--mock` 工厂，
+typecheck/build 全绿）。**下一步：mcp-server 的 Task 2.2–2.6（补齐剩余工具 + 集成测试）。**
 
-## 已完成 ✅（已 git 提交）
+## 已完成 ✅（均已 git 提交，HEAD = mcp 2.1）
 
-- `docs/SPEC.md` — 技术规格 + 全部接口签名（权威设计）
-- `docs/PLAN.md` — 里程碑1（core, Task 1.1–1.8）+ 里程碑2（mcp-server）的 TDD 施工单
-- `AGENTS.md` — Codex 执行契约（TDD、离线测试、ESM、禁真实 P4、小步提交）
-- `README.md` — 冲星标门面（问题陈述、对比表、接入片段、架构图、路线图）
-- 根配置：`package.json`（npm workspaces）、`tsconfig.base.json`、`.gitignore`、`LICENSE`（MIT）
+- **core（Milestone 1，Task 1.1–1.8 全部完成）**：runner 接缝 + ExecaP4Runner、
+  ztag 解析器、MockP4Runner（含 sync/filelog）、P4Client（14 方法）、asset-guard、
+  auto-checkout（`ensureOpenForEdit` 杀手功能）、changelist、config、barrel。
+  6 个测试文件 / 34 测试全绿；tsup 构建 CJS+ESM+DTS 全绿。
+- **mcp-server Task 2.1**：`@p4pilot/mcp-server` 包 + `buildCore()`（mock/真实二选一）
+  + `createServer()`（已注册 `p4_status`，证明 `registerTool` 管线可编译）+ stdio 入口
+  （bin `p4pilot-mcp`）+ `examples/mock-depot.json`。
 
-## 未开始 ⏳
+## 待办 ⏳（按序）
 
-- `packages/core`（`@p4pilot/core`）— 无任何文件
-- `packages/mcp-server`（`@p4pilot/mcp-server`）— 无任何文件
-- `examples/`、GitHub Actions CI、React WebView 面板
+1. **mcp-server Task 2.2–2.5**：把 SPEC §5.2 的其余工具补齐（建议每个工具一个
+   `src/tools/*.ts`，或先在 `server.ts` 内联再重构）：
+   `p4_smart_edit`（调 `ensureOpenForEditMany`，杀手）、`p4_edit`/`p4_add`/`p4_revert`、
+   `p4_changelist_create`（用 `buildChangelistDescription` + `config.defaultChangelistPrefix`）、
+   `p4_changelist_list`、`p4_describe`、`p4_review`（describe diff:true 格式化）、
+   `p4_asset_info`（`fstat`+`classifyAsset`，二进制不回传字节）、
+   `p4_search`（对 workspace grep/rg，用 asset-guard 跳过二进制；用可注入 runner 以便离线测）、
+   `p4_filelog`。每个都用 TDD（handler 直接对 MockP4Runner 测）。
+2. **mcp-server Task 2.6**：用 `InMemoryTransport` 做集成测试（listTools 含全部工具、
+   callTool p4_smart_edit 后假仓库状态变化）；`P4PilotError` → MCP tool error（带 code）。
+3. **Milestone 3 冲星标**：README 演示、`examples/`（已有 mock-depot.json）、GitHub Actions CI、`docs/TOOLS.md`。
+4. **阶段2**：React WebView 面板（跨端，命中 JD 第5条）。
 
-## 项目定位（提醒自己）
+## MCP SDK 速查（已实测，@modelcontextprotocol/sdk 已装，zod 4.4.3 兼容）
 
-**p4pilot = 让 AI Coding Agent 原生支持 Perforce 的 MCP 层。** 切入点：主流 agent
-（Claude Code/Cursor/Codex）全是 Git 原生，游戏工作室用 Perforce → 空白市场。
-杀手功能：`ensureOpenForEdit`（改文件前自动 `p4 edit`）。对准米哈游 Coding Agent 岗
-JD（P4 管理 / 代码评审 / 代码检索 / 跨端 WebView / TS+React）。
+```ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+const server = new McpServer({ name: "p4pilot", version: "0.0.0" });
 
-## 环境与配置（下次直接用，无需重设）
+// 注册工具：config 里 inputSchema 是 zod "raw shape"（键→zod 校验器的对象）
+server.registerTool(
+  "p4_smart_edit",
+  { title: "...", description: "...", inputSchema: { paths: z.array(z.string()), changelist: z.string().optional() } },
+  async (args) => ({ content: [{ type: "text" as const, text: "..." }] }),  // 无 inputSchema 时回调是 async () => ...
+);
+```
 
-- **指挥官模型**：Claude Fable 5（已设默认，effort = high）
-- **Codex 施工模型**：`gpt-5.6-sol` / high（`~/.codex/config.toml`），micu 通道
-- `D:\Downloads\p4pilot` 已加入 Claude 允许目录 + Codex 信任项目列表
-- Node ≥20 / npm / git 就绪；**pnpm、gh 未装**（计划已绕开，用 npm workspaces）
-- 依赖版本（此 registry 实测可用）：`@modelcontextprotocol/sdk ^1.29`、`execa ^9.6`、
-  `vitest ^4.1`、`zod ^4.4`、`tsup ^8.5`、`typescript ^5.6`
+- stdio：`import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"`；`await server.connect(new StdioServerTransport())`
+- 集成测试（进程内，无 stdio）：
+  ```ts
+  import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+  import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+  const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "test", version: "0" });
+  await Promise.all([server.connect(serverT), client.connect(clientT)]);
+  await client.listTools();
+  await client.callTool({ name: "p4_smart_edit", arguments: { paths: ["/ws/a.c"] } });
+  ```
+- 返回内容用 `type: "text" as const`（否则 TS 会把 "text" 拓宽成 string 而报错）。
 
-## ⚠️ 首次 Codex 派发失败复盘（下次改进）
+## 远程落地（GitHub · 星标目标，尚未推送）
 
-- 任务 `task-mrm64pmx-q9684n`（gpt-5.6-sol）运行约 15 分钟，一直停在
-  "用 powershell 分块读取 SPEC / 准备 Task 1.1"，随后线程静默死亡：**零文件、零提交**。
-- 疑因：反复用 `powershell -Command '$OutputEncoding=...UTF8...'` 小块读文件，
-  陷入低效循环 / 线程假死。
-- **下次改进（任选其一）**：
-  1. 首批只派 **Task 1.1–1.3**（脚手架 + ztag 解析器 + MockP4Runner），先验证 Codex
-     能正常落地文件与提交，再继续 1.4–1.8。（推荐）
-  2. 派发提示里明确："一次性读取整文件，禁止逐块 powershell 读取；每完成一个 Task
-     立即 `git commit`，不要长时间只读不写。"
-  3. 先由 Claude（指挥官）内联做 Task 1.1 脚手架打样，再把后续交给 Codex。
-  4. 备选恢复旧会话：`codex resume 019f6627-79cc-7ad3-9782-1cdd3c463cc0`
-     （但既然零产出，建议直接重开）。
+仓库：`https://github.com/sdvgdfvds/p4pilot`（public，仓库名 `p4pilot`）。
+git 作者身份已设为 GitHub（`sdvgdfvds` / `sdvgdfvds@users.noreply.github.com`）。
+建仓+推送（网页建空仓后）：
+```bash
+cd /d/Downloads/p4pilot
+git remote add origin https://github.com/sdvgdfvds/p4pilot.git
+git branch -M main
+git push -u origin main
+```
 
-## 如何续接（两种方式）
-
-### A. 恢复本次对话（最省事）
-终端里 `cd D:\Downloads\p4pilot`，然后：
-- `claude --continue` —— 继续最近一次会话，或
-- `claude --resume` —— 从列表挑这次会话
-恢复后对我说 **"继续 p4pilot"**，我会读本文件 + PLAN 接着干。
-
-### B. 全新会话
-1. `cd D:\Downloads\p4pilot`
-2. 让我先读 `docs/HANDOFF.md`、`docs/PLAN.md`、`docs/SPEC.md`、`AGENTS.md`
-3. 说 **"派 Codex 做里程碑1 的 Task 1.1–1.3"**（建议小步验证）
-
-## 下一步待办（按序）
-
-1. [ ] 重新派发 Codex 构建 `@p4pilot/core`（建议先 Task 1.1–1.3 小步验证）
-2. [ ] core 全绿后：`npm install / typecheck / test / build` 验证，指挥官复查代码
-3. [ ] 派 Codex 构建 `@p4pilot/mcp-server`（里程碑2）
-4. [ ] 冲星标打磨：README 演示、`examples/`、CI、`docs/`
-5. [ ] 阶段2：React WebView 面板（跨端，命中 JD 第5条）
-
-## 验证命令（core 完成后，从项目根运行）
+## 验证命令（从项目根，全绿且无需真实 Perforce）
 
 ```bash
 npm install
-npm run typecheck
-npm test
-npm run build
+npm run typecheck   # tsc -b（solution 式，含 core + mcp-server）
+npm test            # vitest：当前 34 通过
+npm run build       # 两个包 tsup：CJS+ESM+DTS
 ```
+
+## 如何续接
+
+终端 `cd D:\Downloads\p4pilot` → `claude --continue`（或 `--resume` 选本会话）→
+对我说 **“继续 p4pilot 的 mcp-server”**，我会读本文件接着做 Task 2.2。
+
+## 杂项
+
+- 根目录两个文件 `docs/GPT-BRIEFING.md`、`p4pilot-给GPT的完整指令.md` 是早前
+  “交给 GPT 手动做”的方案产物,**现已弃用,可删除**(未跟踪,不影响仓库)。
+- 环境:Node ≥20 / npm / git;pnpm、gh 未装(计划已绕开)。指挥官模型 Opus 4.8 max。
