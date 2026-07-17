@@ -1,0 +1,13 @@
+# Add p4pilot as an MCP server for Codex.
+# Drop this into ~/.codex/config.toml (merge with your existing config).
+
+# Real Perforce workspace — uses your P4PORT / P4CLIENT / P4USER.
+[mcp_servers.p4pilot]
+command = "npx"
+args = ["-y", "@p4pilot/mcp-server"]
+env = { P4PORT = "ssl:perforce.example.com:1666", P4CLIENT = "your-workspace", P4USER = "your-user" }
+
+# No Perforce handy? Try everything against an in-memory fake depot.
+[mcp_servers.p4pilot-mock]
+command = "npx"
+args = ["-y", "@p4pilot/mcp-server", "--mock"]
