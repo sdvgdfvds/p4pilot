@@ -18,6 +18,11 @@
       "types": "./dist/testing/mock-runner.d.ts",
       "import": "./dist/testing/mock-runner.js",
       "require": "./dist/testing/mock-runner.cjs"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js",
+      "require": "./dist/browser.cjs"
     }
   },
   "files": [
