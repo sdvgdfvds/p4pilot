@@ -10,4 +10,11 @@ describe("toDiffRows", () => {
     const rows = toDiffRows("a\nb\n", "a\n");
     expect(rows.find((r) => r.text === "b")!.type).toBe("del");
   });
+  it("preserves blank lines inside diffed content", () => {
+    expect(toDiffRows("a\n\nb\n", "a\n\nb\n")).toEqual([
+      { type: "ctx", text: "a" },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: "b" },
+    ]);
+  });
 });
