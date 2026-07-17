@@ -1,6 +1,6 @@
 {
   "name": "@p4pilot/mcp-server",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "MCP server exposing Perforce-native tools for AI coding agents.",
   "license": "MIT",
   "author": "p4pilot contributors",
