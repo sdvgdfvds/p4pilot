@@ -8,19 +8,43 @@
 
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
-<!-- badges: wired up in the "polish" milestone -->
-[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](#)
-[![npm](https://img.shields.io/badge/npm-@p4pilot/mcp--server-lightgrey)](#)
+[![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
+[![tests](https://img.shields.io/badge/tests-46%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
+[![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
 
 </div>
 
 ---
 
-> **⚠️ Status: pre-release / under active construction.** The MVP surface is
-> being built from the plan in [`docs/PLAN.md`](./docs/PLAN.md). Star & watch to
+> **✅ Status: MVP complete (v0.1).** Core + MCP server are done and fully
+> tested — 46 tests, green in CI, and runnable today with zero Perforce via
+> `--mock`. Next up: **Phase 2** (React WebView review panel). Star & watch to
 > follow along.
+
+## See it in action
+
+The agent is about to edit two files. p4pilot checks them out first — into the
+right changelist — and flags the binary asset **before** it's touched:
+
+```text
+$ p4_changelist_create { "description": "player dash tuning" }
+Created pending changelist 813: [p4pilot] player dash tuning
+
+$ p4_smart_edit { "paths": ["/depot/game/src/main.cpp", "/depot/game/Content/Hero.uasset"], "changelist": "813" }
+Ensured 2 path(s) open for edit:
+opened	/depot/game/src/main.cpp [cl 813]
+opened	/depot/game/Content/Hero.uasset [cl 813]  ⚠ large-asset — edit carefully (large-asset extension .uasset)
+
+$ p4_status {}
+2 open file(s):
+edit	//depot/game/src/main.cpp (change 813)
+edit	//depot/game/Content/Hero.uasset (change 813)
+```
+
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 12
+tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists
 
@@ -56,7 +80,8 @@ intercepted file writes to enforce `p4 edit`.** Until you build that bridge,
 | 🧾 **History & blame** | `filelog`/`describe`-backed history so the agent can answer "who changed this and why". |
 
 All exposed as **MCP tools**, so any MCP client (Claude Code, Cursor, Codex,
-JetBrains, …) gets Perforce fluency with zero custom glue.
+JetBrains, …) gets Perforce fluency with zero custom glue. See the full
+[tool reference](./docs/TOOLS.md).
 
 ## How it compares
 
@@ -74,6 +99,9 @@ JetBrains, …) gets Perforce fluency with zero custom glue.
 > Requires Node.js ≥ 20. A real Perforce connection uses your existing
 > `P4PORT`/`P4CLIENT`/`P4USER` (or `.p4config`). No Perforce? Use **mock mode**
 > below to try everything with an in-memory fake depot.
+>
+> The `npx` commands assume the package is published to npm. Until then, use
+> [Run from source](#run-from-source-until-published-to-npm) — it works today.
 
 ### Try it with a fake depot (no Perforce needed)
 
@@ -109,6 +137,18 @@ command = "npx"
 args = ["-y", "@p4pilot/mcp-server"]
 ```
 
+### Run from source (until published to npm)
+
+```bash
+git clone https://github.com/sdvgdfvds/p4pilot.git
+cd p4pilot
+npm install && npm run build
+node packages/mcp-server/dist/index.js --mock   # or wire the built binary into your MCP client
+```
+
+Ready-to-copy config snippets for each client live in
+[`examples/`](./examples).
+
 ## Architecture
 
 ```
@@ -133,13 +173,14 @@ args = ["-y", "@p4pilot/mcp-server"]
         └──────────────┘        └──────────────┘
 ```
 
-See [`docs/SPEC.md`](./docs/SPEC.md) for the full design and
-[`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
+See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and
+[`docs/SPEC.md`](./docs/SPEC.md) for the design, [`docs/TOOLS.md`](./docs/TOOLS.md)
+for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 
 ## Roadmap
 
-- [ ] **MVP:** core (runner/parser/client/auto-checkout/asset-guard) + MCP server
-- [ ] Polish: README demo GIF, examples, CI, tool reference docs
+- [x] **MVP:** core (runner/parser/client/auto-checkout/asset-guard) + MCP server
+- [x] Polish: examples, CI, tool reference & architecture docs
 - [ ] **Phase 2:** React WebView panel (changelist dashboard + review UI),
       embeddable in browser / PC client / **UE / Maya** WebViews
 - [ ] Shelved-changelist review workflow
@@ -148,8 +189,8 @@ See [`docs/SPEC.md`](./docs/SPEC.md) for the full design and
 ## Contributing
 
 This project is built test-first. See [`AGENTS.md`](./AGENTS.md) for the
-execution contract and [`docs/PLAN.md`](./docs/PLAN.md) for open tasks. PRs
-welcome once the MVP lands.
+execution contract, [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for the
+design, and [`docs/PLAN.md`](./docs/PLAN.md) for open tasks. PRs welcome.
 
 ## License
 
