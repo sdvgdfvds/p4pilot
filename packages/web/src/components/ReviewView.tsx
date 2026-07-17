@@ -9,7 +9,10 @@ export function ReviewView() {
   const [review, setReview] = useState<ReviewData | null>(null);
 
   useEffect(() => {
-    if (change === null) return;
+    if (change === null) {
+      setReview(null);
+      return;
+    }
     void store.review(change).then(setReview);
   }, [change, store]);
 
