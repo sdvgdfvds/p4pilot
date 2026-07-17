@@ -13,6 +13,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://sdvgdfvds.github.io/p4pilot/)
 
 </div>
 
@@ -22,6 +23,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 > tested — 46 tests, green in CI, and runnable today with zero Perforce via
 > `--mock`. Next up: **Phase 2** (React WebView review panel). Star & watch to
 > follow along.
+> **▶ Live demo (no install):** https://sdvgdfvds.github.io/p4pilot/
 
 ## See it in action
 
