@@ -6,7 +6,7 @@
 
 **Architecture:** New `packages/web` (Vite + React + TS) imports a new browser-safe core entry `@p4pilot/core/browser` (no execa/fs). A `DemoStore` wraps `new P4Client(new MockP4Runner(seed))`; React renders its state and mutates the fake depot live. A web-level seed supplies file before/after text so the review view renders a real unified diff.
 
-**Tech Stack:** TypeScript (strict, ESM), React 18, Vite 5, Vitest + @testing-library/react + jsdom, the `diff` package, npm workspaces, GitHub Actions (Pages).
+**Tech Stack:** TypeScript (strict, ESM), React 18, Vite 7, Vitest + @testing-library/react + jsdom, the `diff` package, npm workspaces, GitHub Actions (Pages).
 
 ## Global Constraints
 
@@ -198,7 +198,7 @@ git commit -m "feat(core): add browser-safe entry (@p4pilot/core/browser)"
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^25.0.0",
     "typescript": "^5.6.0",
-    "vite": "^5.4.0",
+    "vite": "^7.0.0",
     "vitest": "^4.1.0"
   }
 }
@@ -222,9 +222,8 @@ git commit -m "feat(core): add browser-safe entry (@p4pilot/core/browser)"
 
 - [ ] **Step 3: `packages/web/vite.config.ts`.**
 ```ts
-/// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   base: "/p4pilot/",
@@ -605,9 +604,9 @@ export function toDiffRows(before: string, after: string): DiffRow[] {
   const rows: DiffRow[] = [];
   for (const part of diffLines(before, after)) {
     const type: DiffRow["type"] = part.added ? "add" : part.removed ? "del" : "ctx";
-    for (const line of part.value.split("\n")) {
-      if (line.length > 0) rows.push({ type, text: line });
-    }
+    const lines = part.value.split("\n");
+    if (lines.at(-1) === "") lines.pop(); // drop only the trailing split artifact
+    for (const line of lines) rows.push({ type, text: line });
   }
   return rows;
 }
@@ -626,6 +625,13 @@ describe("toDiffRows", () => {
   it("marks removed lines", () => {
     const rows = toDiffRows("a\nb\n", "a\n");
     expect(rows.find((r) => r.text === "b")!.type).toBe("del");
+  });
+  it("preserves blank lines inside diffed content", () => {
+    expect(toDiffRows("a\n\nb\n", "a\n\nb\n")).toEqual([
+      { type: "ctx", text: "a" },
+      { type: "ctx", text: "" },
+      { type: "ctx", text: "b" },
+    ]);
   });
 });
 ```
