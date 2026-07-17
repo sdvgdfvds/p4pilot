@@ -32,7 +32,15 @@
 - ⬜ Task10 GitHub Pages 部署（`.github/workflows/pages.yml`）+ README Live Demo 链接 — 未做
 - ⬜ 整支最终复查（用最强模型 opus）+ superpowers:finishing-a-development-branch（合并/PR 决策）
 
-当前：web 测试 17 全绿、typecheck 干净、单一 `vite@7.3.6` 实例。
+当前：`npm test -w @p4pilot/web` 单包 17 全绿、typecheck 干净、单一 `vite@7.3.6` 实例。
+
+## ⚠️ 已知问题（新会话第一件事，务必先修）
+
+**根目录 `npm test`（全仓库 65 测试）有 1 个失败**，但 `npm test -w @p4pilot/web` 单包跑全绿：
+- 失败用例：`packages/web/src/components/Dashboard.test.tsx > creates a changelist`，报 `Found multiple elements with the text of: new changelist`。
+- 根因：根 `vitest run` 不加载各包自己的 `vite.config.ts`，于是 web 的 `test.globals:true` 不生效 →`@testing-library/react` 的自动 `cleanup()`（挂在全局 afterEach）不触发 →同一测试文件里前一个 `render` 的 DOM 没清 →第二个用例看到两个 `aria-label="new changelist"` 输入框而报错。
+- 为何要紧：CI（`.github/workflows/ci.yml`）在 main/PR 上跑的就是**根 `npm test`**，所以 Phase 2 合并到 main 后 **CI 会红**。必须合并前修好。
+- 修法（注意 **vitest 4 已移除 `defineWorkspace`/`vitest.workspace.ts`，改用 `projects`**）：在根建 `vitest.config.ts` 用 `test.projects` 纳入各包、让 web 用它自己的 jsdom+globals 配置；core/mcp-server 无配置文件，需确认仍被收集（可能要各加一个最小 vitest 配置，或在 projects 里显式列出，并给 web 项目单列）。改完让**根 `npm test` 65/65 全绿**且 `npm test -w @p4pilot/web` 仍绿。兜底方案：在三个 web 组件测试里显式 `afterEach(cleanup)`（但根因是根配置缺失）。
 
 ## 如何在新会话续接
 
