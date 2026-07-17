@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-66%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 65 tests, green in CI, and runnable today with zero Perforce via
+> tested — 66 tests, green in CI, and runnable today with zero Perforce via
 > `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
 > now live.
 >
