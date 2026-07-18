@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc",
+    "pretest": "npm run build -w @p4pilot/core",
     "test": "vitest run"
   },
   "dependencies": {
