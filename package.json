@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "pretest": "npm run build -w @p4pilot/core",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty",

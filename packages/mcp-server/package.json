@@ -16,6 +16,8 @@
   ],
   "scripts": {
     "build": "tsup",
+    "pretest": "npm run build -w @p4pilot/core",
+    "test": "vitest run",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
