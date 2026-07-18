@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/testing/mock-runner.ts"],
+  entry: ["src/index.ts", "src/testing/mock-runner.ts", "src/browser.ts"],
   format: ["esm", "cjs"],
   dts: true,
   clean: true,

@@ -1,0 +1,8 @@
+:root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+body { margin: 0; }
+.badge { padding: 0 6px; border-radius: 6px; font-size: 12px; }
+.badge.text { background: #e6f4ea; }
+.badge.binary { background: #fde7e9; }
+.badge.large-asset { background: #fff4ce; }
+.diff .add { background: #e6ffed; }
+.diff .del { background: #ffeef0; }

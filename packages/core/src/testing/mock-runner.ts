@@ -1,5 +1,3 @@
-import { posix } from "node:path";
-
 import type { P4Result, P4Runner, P4RunOptions } from "../p4-runner.js";
 import type { ChangelistSummary, P4Action } from "../types.js";
 
@@ -45,6 +43,16 @@ function formatRecords(records: ZtagField[][]): string {
 
 function normalizePath(value: string): string {
   return value.replaceAll("\\", "/");
+}
+
+/** Pure POSIX `path.relative` for absolute, normalized paths (no node:path). */
+function relativePosix(from: string, to: string): string {
+  const fromParts = from.replace(/\/+$/, "").split("/").filter(Boolean);
+  const toParts = to.split("/").filter(Boolean);
+  let i = 0;
+  while (i < fromParts.length && i < toParts.length && fromParts[i] === toParts[i]) i += 1;
+  const up = fromParts.slice(i).map(() => "..");
+  return [...up, ...toParts.slice(i)].join("/");
 }
 
 function parseCommandFiles(args: string[]): { change: string; files: string[] } {
@@ -392,10 +400,10 @@ export class MockP4Runner implements P4Runner {
 
   private toDepotFile(clientFile: string): string {
     const normalizedRoot = normalizePath(this.#state.root).replace(/\/$/, "");
-    const relative = posix.relative(normalizedRoot, clientFile);
+    const relative = relativePosix(normalizedRoot, clientFile);
     const trackedFile = this.#state.files.find((file) => file.headRev !== undefined);
     if (trackedFile !== undefined) {
-      const trackedRelative = posix.relative(normalizedRoot, normalizePath(trackedFile.clientFile));
+      const trackedRelative = relativePosix(normalizedRoot, normalizePath(trackedFile.clientFile));
       const suffix = `/${trackedRelative}`;
       const depotRoot = trackedFile.depotFile.endsWith(suffix)
         ? trackedFile.depotFile.slice(0, -suffix.length)

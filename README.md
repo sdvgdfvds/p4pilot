@@ -9,19 +9,22 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-46%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-66%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://sdvgdfvds.github.io/p4pilot/)
 
 </div>
 
 ---
 
-> **✅ Status: MVP complete (v0.1).** Core + MCP server are done and fully
-> tested — 46 tests, green in CI, and runnable today with zero Perforce via
-> `--mock`. Next up: **Phase 2** (React WebView review panel). Star & watch to
-> follow along.
+> **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
+> tested — 66 tests, green in CI, and runnable today with zero Perforce via
+> `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
+> now live.
+>
+> **▶ Live demo (no install):** https://sdvgdfvds.github.io/p4pilot/
 
 ## See it in action
 
@@ -181,8 +184,8 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 
 - [x] **MVP:** core (runner/parser/client/auto-checkout/asset-guard) + MCP server
 - [x] Polish: examples, CI, tool reference & architecture docs
-- [ ] **Phase 2:** React WebView panel (changelist dashboard + review UI),
-      embeddable in browser / PC client / **UE / Maya** WebViews
+- [x] **Phase 2:** React demo panel (changelist dashboard + review UI), live in-browser on GitHub Pages
+- [ ] Embed the review panel in PC client / **UE / Maya** WebViews
 - [ ] Shelved-changelist review workflow
 - [ ] Asset dependency surfacing (UE `.uasset` references)
 
