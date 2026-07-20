@@ -117,9 +117,6 @@ Perforce workflow. This is a product safety boundary, not a missing tool.
 > Requires Node.js ≥ 20. A real Perforce connection uses your existing
 > `P4PORT`/`P4CLIENT`/`P4USER` (or `.p4config`). No Perforce? Use **mock mode**
 > below to try everything with an in-memory fake depot.
->
-> The `npx` commands assume the package is published to npm. Until then, use
-> [Run from source](#run-from-source-until-published-to-npm) — it works today.
 
 ### Try it with a fake depot (no Perforce needed)
 
@@ -158,7 +155,7 @@ command = "npx"
 args = ["-y", "@p4pilot/mcp-server"]
 ```
 
-### Run from source (until published to npm)
+### Run from source
 
 ```bash
 git clone https://github.com/sdvgdfvds/p4pilot.git

@@ -6,6 +6,8 @@ All notable changes to p4pilot are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-20
+
 ### Added
 
 - Public package metadata for `@p4pilot/core` and `@p4pilot/mcp-server`.
@@ -21,10 +23,6 @@ All notable changes to p4pilot are documented here. The format follows
 - Refreshed the browser demo into a responsive workspace UI with README imagery.
 - Consolidated MCP mock data into one bundled source that creates fresh state.
 - Extended CI with format, lint, and coverage gates.
-
-## [0.1.0] - 2026-07-16
-
-### Added
 
 - Perforce runner, ztag parser, typed client, auto-checkout, asset guard, and
   changelist helpers in `@p4pilot/core`.
