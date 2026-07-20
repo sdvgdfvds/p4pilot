@@ -29,6 +29,16 @@ export interface ReviewData {
   files: { depotFile: string; action: string; rows: DiffRow[] }[];
 }
 
+export interface AssetInfoData {
+  path: string;
+  kind: AssetKind;
+  filetype?: string;
+  tracked: boolean;
+  headRev?: number;
+  shouldRead: boolean;
+  reason: string;
+}
+
 export class DemoStore {
   readonly #seed: DemoSeed;
   readonly #client: P4Client;
@@ -39,7 +49,9 @@ export class DemoStore {
   }
 
   async listFiles(): Promise<FileView[]> {
-    const stats = await this.#client.fstat(this.#seed.depot.files.map((f) => f.clientFile));
+    const stats = await this.#client.fstat(
+      this.#seed.depot.files.map((f) => f.clientFile),
+    );
     return stats.map((stat) => {
       const path = stat.clientFile ?? stat.depotFile;
       const asset = classifyAsset(path, { stat });
@@ -56,7 +68,10 @@ export class DemoStore {
     });
   }
 
-  async smartEdit(clientFile: string, changelist?: string): Promise<CheckoutResult> {
+  async smartEdit(
+    clientFile: string,
+    changelist?: string,
+  ): Promise<CheckoutResult> {
     const [result] = await ensureOpenForEditMany(
       this.#client,
       [clientFile],
@@ -66,7 +81,9 @@ export class DemoStore {
   }
 
   async createChangelist(description: string): Promise<string> {
-    return this.#client.newChangelist(buildChangelistDescription(description, "[p4pilot] "));
+    return this.#client.newChangelist(
+      buildChangelistDescription(description, "[p4pilot] "),
+    );
   }
 
   async listChangelists(): Promise<ChangelistSummary[]> {
@@ -77,7 +94,7 @@ export class DemoStore {
     return this.#client.revert([clientFile]);
   }
 
-  async assetInfo(path: string) {
+  async assetInfo(path: string): Promise<AssetInfoData> {
     const [stat] = await this.#client.fstat([path]);
     const asset = classifyAsset(path, { stat });
     return {
@@ -109,6 +126,7 @@ export class DemoStore {
   }
 
   #openedChange(depotFile: string): string | undefined {
-    return this.#seed.depot.files.find((f) => f.depotFile === depotFile)?.opened?.change;
+    return this.#seed.depot.files.find((f) => f.depotFile === depotFile)?.opened
+      ?.change;
   }
 }

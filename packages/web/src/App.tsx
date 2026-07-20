@@ -1,21 +1,61 @@
 import { useState } from "react";
+import { AlertCircle, GitPullRequest, LayoutDashboard, X } from "lucide-react";
 import { Header } from "./components/Header.js";
 import { Dashboard } from "./components/Dashboard.js";
 import { ReviewView } from "./components/ReviewView.js";
-import { DemoProvider } from "./demo/useDemo.js";
+import { DemoProvider, useDemo } from "./demo/useDemo.js";
+
+function Workspace() {
+  const [tab, setTab] = useState<"dashboard" | "review">("dashboard");
+  const { clearError, error } = useDemo();
+  return (
+    <main className="app-shell" data-testid="app">
+      <Header />
+      <nav className="workspace-tabs" aria-label="Workspace views">
+        <div className="workspace-inner">
+          <button
+            className={tab === "dashboard" ? "active" : undefined}
+            aria-current={tab === "dashboard" ? "page" : undefined}
+            onClick={() => setTab("dashboard")}
+          >
+            <LayoutDashboard size={16} /> Dashboard
+          </button>
+          <button
+            className={tab === "review" ? "active" : undefined}
+            aria-current={tab === "review" ? "page" : undefined}
+            onClick={() => setTab("review")}
+          >
+            <GitPullRequest size={16} /> Review
+          </button>
+        </div>
+      </nav>
+      {error && (
+        <div className="error-region">
+          <div className="error-banner" role="alert">
+            <AlertCircle size={18} aria-hidden="true" />
+            <span>{error}</span>
+            <button
+              className="icon-button"
+              aria-label="Dismiss error"
+              title="Dismiss error"
+              onClick={clearError}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="workspace-inner workspace-content">
+        {tab === "dashboard" ? <Dashboard /> : <ReviewView />}
+      </div>
+    </main>
+  );
+}
 
 export function App() {
-  const [tab, setTab] = useState<"dashboard" | "review">("dashboard");
   return (
     <DemoProvider>
-      <main data-testid="app">
-        <Header />
-        <nav>
-          <button onClick={() => setTab("dashboard")} disabled={tab === "dashboard"}>Dashboard</button>
-          <button onClick={() => setTab("review")} disabled={tab === "review"}>Review</button>
-        </nav>
-        {tab === "dashboard" ? <Dashboard /> : <ReviewView />}
-      </main>
+      <Workspace />
     </DemoProvider>
   );
 }
