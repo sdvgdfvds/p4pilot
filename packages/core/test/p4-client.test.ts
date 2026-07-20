@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { P4Client } from "../src/p4-client.js";
+import type { P4Result, P4Runner } from "../src/p4-runner.js";
 import { MockP4Runner } from "../src/testing/mock-runner.js";
 import { P4PilotError } from "../src/types.js";
+
+const ok = (stdout: string): P4Result => ({
+  stdout,
+  stderr: "",
+  exitCode: 0,
+});
 
 const seed = () =>
   new MockP4Runner({
@@ -47,6 +54,23 @@ describe("P4Client", () => {
     expect(opened[0]!.action).toBe("edit");
   });
 
+  it("edit() reports the requested changelist when real p4 omits it", async () => {
+    const runner: P4Runner = {
+      async run() {
+        return ok(
+          "... depotFile //depot/a.c\n" +
+            "... clientFile C:\\ws\\a.c\n" +
+            "... action edit\n" +
+            "... type text\n",
+        );
+      },
+    };
+    const opened = await new P4Client(runner).edit(["C:\\ws\\a.c"], {
+      changelist: "42",
+    });
+    expect(opened[0]!.change).toBe("42");
+  });
+
   it("opened() lists files after an edit", async () => {
     const client = new P4Client(seed());
     await client.edit(["/ws/a.c"]);
@@ -85,6 +109,47 @@ describe("P4Client", () => {
     expect(described.files.map((file) => file.depotFile)).toContain(
       "//depot/a.c",
     );
+  });
+
+  it("describe() parses real pending output and returns its workspace diff", async () => {
+    const runner: P4Runner = {
+      async run(args) {
+        if (args[0] === "describe") {
+          return ok(
+            "... change 42\n" +
+              "... user alice\n" +
+              "... desc tune sprint\n\n" +
+              "... status pending\n" +
+              "... depotFile0 //depot/a.c\n" +
+              "... action0 edit\n" +
+              "... rev0 3\n" +
+              "... depotFile1 //depot/b.c\n" +
+              "... action1 edit\n" +
+              "... rev1 5\n",
+          );
+        }
+        if (args[0] === "diff") {
+          return ok(
+            "... depotFile //depot/a.c\n" +
+              "... clientFile C:\\ws\\a.c\n" +
+              "... type text+D\n\n" +
+              "@@ -1 +1 @@\n" +
+              "-old\n" +
+              "+new\n",
+          );
+        }
+        return { stdout: "", stderr: "unexpected command", exitCode: 1 };
+      },
+    };
+    const described = await new P4Client(runner).describe("42", {
+      diff: true,
+    });
+    expect(described.files.map((file) => file.depotFile)).toEqual([
+      "//depot/a.c",
+      "//depot/b.c",
+    ]);
+    expect(described.diff).toContain("@@ -1 +1 @@");
+    expect(described.diff).toContain("+new");
   });
 
   it("filelog() returns revision history", async () => {
