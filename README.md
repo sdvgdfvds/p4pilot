@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-66%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 66 tests, green in CI, and runnable today with zero Perforce via
+> tested — 81 tests, green in CI, and runnable today with zero Perforce via
 > `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
 > now live.
 >
@@ -94,6 +94,12 @@ intercepted file writes to enforce `p4 edit`.** Until you build that bridge,
 All exposed as **MCP tools**, so any MCP client (Claude Code, Cursor, Codex,
 JetBrains, …) gets Perforce fluency with zero custom glue. See the full
 [tool reference](./docs/TOOLS.md).
+
+### Human-controlled submission
+
+p4pilot deliberately stops at prepared, reviewable changelists. It does not
+expose `p4 submit`: a human reviews the diff and submits through their normal
+Perforce workflow. This is a product safety boundary, not a missing tool.
 
 ## How it compares
 
@@ -197,6 +203,7 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] **MVP:** core (runner/parser/client/auto-checkout/asset-guard) + MCP server
 - [x] Polish: examples, CI, tool reference & architecture docs
 - [x] **Phase 2:** React demo panel (changelist dashboard + review UI), live in-browser on GitHub Pages
+- [x] Human-owned submit boundary: p4pilot prepares and reviews; a person submits
 - [ ] Embed the review panel in PC client / **UE / Maya** WebViews
 - [ ] Shelved-changelist review workflow
 - [ ] Asset dependency surfacing (UE `.uasset` references)

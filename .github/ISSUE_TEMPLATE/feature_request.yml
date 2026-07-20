@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a focused p4pilot capability
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Perforce workflow problem
+      description: Describe the user or agent workflow that is currently difficult.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Include the expected core API or MCP tool contract when relevant.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety considerations
+      options:
+        - label: This can be tested fully offline with MockP4Runner.
+          required: true
+        - label: This does not automate p4 submit without explicit human approval.
+          required: true

@@ -5,7 +5,9 @@ describe("DemoStore", () => {
   it("lists four files with asset kinds", async () => {
     const files = await new DemoStore().listFiles();
     expect(files).toHaveLength(4);
-    expect(files.find((f) => f.clientFile.endsWith("Hero.uasset"))!.kind).toBe("large-asset");
+    expect(files.find((f) => f.clientFile.endsWith("Hero.uasset"))!.kind).toBe(
+      "large-asset",
+    );
   });
 
   it("smart-edit opens a file", async () => {
@@ -13,11 +15,15 @@ describe("DemoStore", () => {
     const result = await store.smartEdit("/depot/game/src/main.cpp");
     expect(result.status).toBe("opened");
     const files = await store.listFiles();
-    expect(files.find((f) => f.clientFile.endsWith("main.cpp"))!.opened).toBe(true);
+    expect(files.find((f) => f.clientFile.endsWith("main.cpp"))!.opened).toBe(
+      true,
+    );
   });
 
   it("smart-edit flags a large asset", async () => {
-    const result = await new DemoStore().smartEdit("/depot/game/Content/Hero.uasset");
+    const result = await new DemoStore().smartEdit(
+      "/depot/game/Content/Hero.uasset",
+    );
     expect(result.asset?.shouldRead).toBe(false);
   });
 
@@ -25,7 +31,9 @@ describe("DemoStore", () => {
     const store = new DemoStore();
     const change = await store.createChangelist("dash tuning");
     const cls = await store.listChangelists();
-    expect(cls.find((c) => c.change === change)!.description).toContain("[p4pilot] dash tuning");
+    expect(cls.find((c) => c.change === change)!.description).toContain(
+      "[p4pilot] dash tuning",
+    );
   });
 
   it("review returns a non-empty diff for the seeded file", async () => {

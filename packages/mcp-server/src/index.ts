@@ -6,7 +6,11 @@ import { createServer } from "./server.js";
 
 async function main(): Promise<void> {
   const { client, config } = buildCore(process.argv.slice(2), process.env);
-  const server = createServer({ client, config, search: createNodeSearcher(client) });
+  const server = createServer({
+    client,
+    config,
+    search: createNodeSearcher(client),
+  });
   await server.connect(new StdioServerTransport());
 }
 

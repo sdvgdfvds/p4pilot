@@ -28,7 +28,9 @@ describe("loadConfig", () => {
   });
 
   it("sets mock=true when P4PILOT_MOCK=1", () => {
-    expect(loadConfig({ cwd: mkdir(), env: { P4PILOT_MOCK: "1" } }).mock).toBe(true);
+    expect(loadConfig({ cwd: mkdir(), env: { P4PILOT_MOCK: "1" } }).mock).toBe(
+      true,
+    );
   });
 
   it("flows P4PORT/P4CLIENT/P4USER into config.env", () => {
@@ -36,13 +38,22 @@ describe("loadConfig", () => {
       cwd: mkdir(),
       env: { P4PORT: "ssl:example:1666", P4CLIENT: "ws", P4USER: "alice" },
     });
-    expect(config.env).toEqual({ P4PORT: "ssl:example:1666", P4CLIENT: "ws", P4USER: "alice" });
+    expect(config.env).toEqual({
+      P4PORT: "ssl:example:1666",
+      P4CLIENT: "ws",
+      P4USER: "alice",
+    });
   });
 
   it("reads .p4pilot.json from cwd to override the changelist prefix", () => {
     const dir = mkdir();
-    writeFileSync(join(dir, ".p4pilot.json"), JSON.stringify({ defaultChangelistPrefix: "[hoyo] " }));
-    expect(loadConfig({ cwd: dir, env: {} }).defaultChangelistPrefix).toBe("[hoyo] ");
+    writeFileSync(
+      join(dir, ".p4pilot.json"),
+      JSON.stringify({ defaultChangelistPrefix: "[hoyo] " }),
+    );
+    expect(loadConfig({ cwd: dir, env: {} }).defaultChangelistPrefix).toBe(
+      "[hoyo] ",
+    );
   });
 });
 
@@ -52,6 +63,8 @@ describe("buildChangelistDescription", () => {
   });
 
   it("does not double-prefix", () => {
-    expect(buildChangelistDescription("[p4pilot] fix crash")).toBe("[p4pilot] fix crash");
+    expect(buildChangelistDescription("[p4pilot] fix crash")).toBe(
+      "[p4pilot] fix crash",
+    );
   });
 });

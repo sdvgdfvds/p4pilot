@@ -45,6 +45,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@p4pilot/core": "*",
+    "minimatch": "^10.2.5",
     "zod": "^4.4.0"
   },
   "devDependencies": {

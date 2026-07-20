@@ -4,10 +4,7 @@ import type { P4Client } from "./p4-client.js";
 import type { P4Action } from "./types.js";
 
 export type CheckoutStatus =
-  | "already-open"
-  | "opened"
-  | "added"
-  | "skipped-untracked-ignored";
+  "already-open" | "opened" | "added" | "skipped-untracked-ignored";
 
 export interface CheckoutResult {
   path: string;
@@ -36,7 +33,13 @@ export async function ensureOpenForEdit(
   const openOpts = changelist === undefined ? undefined : { changelist };
 
   if (stat?.isOpened) {
-    return { path: localPath, status: "already-open", action: stat.action, changelist, asset };
+    return {
+      path: localPath,
+      status: "already-open",
+      action: stat.action,
+      changelist,
+      asset,
+    };
   }
 
   if (stat?.isTracked) {

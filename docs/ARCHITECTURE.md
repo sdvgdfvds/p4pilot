@@ -1,6 +1,6 @@
 # p4pilot Architecture
 
-p4pilot is two packages built around one idea: **keep every bit of Perforce
+p4pilot is three packages built around one idea: **keep every bit of Perforce
 logic behind a single swappable seam, so the whole system is testable with no
 Perforce server anywhere.**
 
@@ -9,29 +9,26 @@ Perforce server anywhere.**
   knowledge.
 - **`@p4pilot/mcp-server`** — a thin MCP adapter (binary `p4pilot-mcp`) that
   exposes core as zod-typed MCP tools over stdio. Zero direct `p4` knowledge.
+- **`@p4pilot/web`** — a private React/Vite demo that imports the browser-safe
+  core entry and runs it against an in-memory mock depot. No backend.
 
 ## Layers
 
 ```
-┌───────────────────────────────────────────────────┐
-│  AI coding agent (Claude Code / Cursor / Codex …)   │
-└───────────────────────────┬─────────────────────────┘
-                            │  MCP (stdio, JSON-RPC)
-                   ┌────────▼──────────┐
-                   │ @p4pilot/mcp-server │  zod-validated tools:
-                   │  (12 MCP tools)     │  p4_smart_edit, p4_status,
-                   └────────┬──────────┘   p4_review, p4_asset_info, …
-                            │  typed calls
-                   ┌────────▼──────────┐
-                   │    @p4pilot/core    │  auto-checkout · asset-guard ·
-                   │  P4Client + logic   │  changelist planning · config
-                   └────────┬──────────┘
-                            │  P4Runner interface  (run(args) → {stdout,stderr,exitCode})
-              ┌─────────────┴──────────────┐
-        ┌─────▼────────┐            ┌───────▼────────┐
-        │ ExecaP4Runner │            │  MockP4Runner  │
-        │  real `p4`    │            │  fake depot    │  (tests + --mock demo)
-        └───────────────┘            └────────────────┘
+AI coding agent                           Browser user
+       │ MCP (stdio)                            │ React
+       ▼                                        ▼
+@p4pilot/mcp-server                       @p4pilot/web
+       │ typed calls                            │ browser-safe imports
+       └──────────────────┬─────────────────────┘
+                          ▼
+                   @p4pilot/core
+                 P4Client + workflows
+                          │ P4Runner
+                  ┌───────┴────────┐
+                  ▼                ▼
+           ExecaP4Runner     MockP4Runner
+              real p4       tests / demos
 ```
 
 ## Request flow
@@ -69,9 +66,18 @@ interface P4Runner {
 output and **never throws on non-zero exit** — it returns the `P4Result` and lets
 `P4Client` decide. `MockP4Runner` interprets a subset of subcommands (`info`,
 `fstat`, `opened`, `edit`, `add`, `revert`, `where`, `changes`, `describe`,
-`change -i`) against an in-memory `FakeDepotState` and mutates that state, so
-tests drive a real workflow and assert on the result. This single seam is why CI
-needs no Perforce.
+`change -i`, `sync`, `filelog`) against an in-memory `FakeDepotState` and mutates
+that state, so tests drive a real workflow and assert on the result. This single
+seam is why CI needs no Perforce.
+
+## Browser demo
+
+The web package imports `@p4pilot/core/browser`, which omits `execa`, `node:fs`,
+and process configuration. `DemoProvider` owns a `DemoStore`, exposes operation
+keys for loading and duplicate suppression, refreshes state after mutations, and
+turns failures into a dismissible banner. Workspace and review views therefore
+exercise the same client, parser, asset guard, and checkout workflow as the MCP
+server while remaining a static site.
 
 ## `-ztag` parsing
 

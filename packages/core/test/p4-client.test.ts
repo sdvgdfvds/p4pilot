@@ -11,7 +11,13 @@ const seed = () =>
     client: "ws-client",
     user: "alice",
     files: [
-      { depotFile: "//depot/a.c", clientFile: "/ws/a.c", headType: "text", headRev: 3, sizeBytes: 10 },
+      {
+        depotFile: "//depot/a.c",
+        clientFile: "/ws/a.c",
+        headType: "text",
+        headRev: 3,
+        sizeBytes: 10,
+      },
       {
         depotFile: "//depot/art/hero.uasset",
         clientFile: "/ws/art/hero.uasset",
@@ -76,7 +82,9 @@ describe("P4Client", () => {
     const client = new P4Client(seed());
     const described = await client.describe("10");
     expect(described.change).toBe("10");
-    expect(described.files.map((file) => file.depotFile)).toContain("//depot/a.c");
+    expect(described.files.map((file) => file.depotFile)).toContain(
+      "//depot/a.c",
+    );
   });
 
   it("filelog() returns revision history", async () => {
@@ -94,7 +102,9 @@ describe("P4Client", () => {
 
   it("throws P4PilotError(P4_COMMAND_FAILED) on a non-zero exit", async () => {
     const client = new P4Client(seed());
-    await expect(client.edit(["/ws/missing.c"])).rejects.toBeInstanceOf(P4PilotError);
+    await expect(client.edit(["/ws/missing.c"])).rejects.toBeInstanceOf(
+      P4PilotError,
+    );
     await expect(client.edit(["/ws/missing.c"])).rejects.toMatchObject({
       code: "P4_COMMAND_FAILED",
     });

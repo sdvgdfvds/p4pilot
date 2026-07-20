@@ -119,15 +119,24 @@ export class P4Client {
     return parseZtag(stdout).map(toFileStat);
   }
 
-  async edit(files: string[], opts?: { changelist?: string }): Promise<OpenedFile[]> {
+  async edit(
+    files: string[],
+    opts?: { changelist?: string },
+  ): Promise<OpenedFile[]> {
     return this.#openOp("edit", files, opts);
   }
 
-  async add(files: string[], opts?: { changelist?: string }): Promise<OpenedFile[]> {
+  async add(
+    files: string[],
+    opts?: { changelist?: string },
+  ): Promise<OpenedFile[]> {
     return this.#openOp("add", files, opts);
   }
 
-  async deleteFiles(files: string[], opts?: { changelist?: string }): Promise<OpenedFile[]> {
+  async deleteFiles(
+    files: string[],
+    opts?: { changelist?: string },
+  ): Promise<OpenedFile[]> {
     return this.#openOp("delete", files, opts);
   }
 
@@ -159,11 +168,16 @@ export class P4Client {
     return { synced: parseZtag(stdout).length };
   }
 
-  async where(file: string): Promise<{ depotFile: string; clientFile: string; path: string }> {
+  async where(
+    file: string,
+  ): Promise<{ depotFile: string; clientFile: string; path: string }> {
     const { stdout } = await this.#run(["where", file]);
     const record = parseZtag(stdout)[0];
     if (!record) {
-      throw new P4PilotError(`p4 where returned no mapping for ${file}`, "FILE_NOT_IN_CLIENT");
+      throw new P4PilotError(
+        `p4 where returned no mapping for ${file}`,
+        "FILE_NOT_IN_CLIENT",
+      );
     }
     const clientFile = record.get("clientFile") ?? "";
     return {
@@ -186,14 +200,20 @@ export class P4Client {
     return parseZtag(stdout).map(toChangelistSummary);
   }
 
-  async describe(change: string, opts?: { diff?: boolean }): Promise<DescribeResult> {
+  async describe(
+    change: string,
+    opts?: { diff?: boolean },
+  ): Promise<DescribeResult> {
     const args = ["describe"];
     if (opts?.diff) args.push("-du");
     args.push(change);
     const { stdout } = await this.#run(args);
     const record = parseZtag(stdout)[0];
     if (!record) {
-      throw new P4PilotError(`p4 describe returned nothing for ${change}`, "P4_COMMAND_FAILED");
+      throw new P4PilotError(
+        `p4 describe returned nothing for ${change}`,
+        "P4_COMMAND_FAILED",
+      );
     }
     const grouped = groupIndexed(record);
     const depotFiles = asArray(grouped.depotFile);
@@ -213,7 +233,10 @@ export class P4Client {
     };
   }
 
-  async filelog(file: string, opts?: { max?: number }): Promise<FilelogEntry[]> {
+  async filelog(
+    file: string,
+    opts?: { max?: number },
+  ): Promise<FilelogEntry[]> {
     const args = ["filelog"];
     if (opts?.max !== undefined) args.push("-m", String(opts.max));
     args.push(file);

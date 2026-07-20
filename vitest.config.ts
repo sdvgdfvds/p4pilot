@@ -13,6 +13,15 @@ import { defineConfig } from "vitest/config";
 // while core and mcp-server run as plain Node projects.
 export default defineConfig({
   test: {
+    coverage: {
+      exclude: ["packages/core/dist/**"],
+      thresholds: {
+        statements: 80,
+        branches: 55,
+        functions: 80,
+        lines: 80,
+      },
+    },
     projects: [
       // Reuses packages/web/vite.config.ts (react plugin, globals, jsdom per file).
       "packages/web/vite.config.ts",

@@ -21,14 +21,26 @@ export interface FakeDepotState {
 
 type ZtagField = readonly [key: string, value: string | number | undefined];
 
-const success = (stdout = ""): P4Result => ({ stdout, stderr: "", exitCode: 0 });
-const failure = (stderr: string): P4Result => ({ stdout: "", stderr, exitCode: 1 });
+const success = (stdout = ""): P4Result => ({
+  stdout,
+  stderr: "",
+  exitCode: 0,
+});
+const failure = (stderr: string): P4Result => ({
+  stdout: "",
+  stderr,
+  exitCode: 1,
+});
 
 function formatRecord(fields: ZtagField[]): string {
   return fields
-    .filter((field): field is readonly [string, string | number] => field[1] !== undefined)
+    .filter(
+      (field): field is readonly [string, string | number] =>
+        field[1] !== undefined,
+    )
     .map(([key, rawValue]) => {
-      const [firstLine = "", ...continuationLines] = String(rawValue).split("\n");
+      const [firstLine = "", ...continuationLines] =
+        String(rawValue).split("\n");
       return [`... ${key} ${firstLine}`, ...continuationLines].join("\n");
     })
     .join("\n");
@@ -50,12 +62,20 @@ function relativePosix(from: string, to: string): string {
   const fromParts = from.replace(/\/+$/, "").split("/").filter(Boolean);
   const toParts = to.split("/").filter(Boolean);
   let i = 0;
-  while (i < fromParts.length && i < toParts.length && fromParts[i] === toParts[i]) i += 1;
+  while (
+    i < fromParts.length &&
+    i < toParts.length &&
+    fromParts[i] === toParts[i]
+  )
+    i += 1;
   const up = fromParts.slice(i).map(() => "..");
   return [...up, ...toParts.slice(i)].join("/");
 }
 
-function parseCommandFiles(args: string[]): { change: string; files: string[] } {
+function parseCommandFiles(args: string[]): {
+  change: string;
+  files: string[];
+} {
   let change = "default";
   const files: string[] = [];
 
@@ -112,7 +132,7 @@ export class MockP4Runner implements P4Runner {
       case "change":
         return this.runChange(commandArgs, opts);
       case "sync":
-        return this.runSync(commandArgs);
+        return this.runSync();
       case "filelog":
         return this.runFilelog(commandArgs);
       default:
@@ -134,29 +154,43 @@ export class MockP4Runner implements P4Runner {
   }
 
   private runFstat(args: string[]): P4Result {
-    const requested = args.slice(1).filter((argument) => !argument.startsWith("-"));
-    const files = requested.length === 0
-      ? this.#state.files
-      : requested.flatMap((file) => this.findFiles(file));
+    const requested = args
+      .slice(1)
+      .filter((argument) => !argument.startsWith("-"));
+    const files =
+      requested.length === 0
+        ? this.#state.files
+        : requested.flatMap((file) => this.findFiles(file));
 
-    return success(formatRecords(files.map((file) => this.fileStatFields(file))));
+    return success(
+      formatRecords(files.map((file) => this.fileStatFields(file))),
+    );
   }
 
   private runOpened(args: string[]): P4Result {
     const { files } = parseCommandFiles(args);
     const changeIndex = args.indexOf("-c");
-    const requestedChange = changeIndex === -1 ? undefined : args[changeIndex + 1];
+    const requestedChange =
+      changeIndex === -1 ? undefined : args[changeIndex + 1];
     const openedFiles = this.#state.files.filter((file) => {
       if (file.opened === undefined) {
         return false;
       }
-      if (requestedChange !== undefined && file.opened.change !== requestedChange) {
+      if (
+        requestedChange !== undefined &&
+        file.opened.change !== requestedChange
+      ) {
         return false;
       }
-      return files.length === 0 || files.some((requested) => this.matches(file, requested));
+      return (
+        files.length === 0 ||
+        files.some((requested) => this.matches(file, requested))
+      );
     });
 
-    return success(formatRecords(openedFiles.map((file) => this.openedFields(file))));
+    return success(
+      formatRecords(openedFiles.map((file) => this.openedFields(file))),
+    );
   }
 
   private runEdit(args: string[]): P4Result {
@@ -172,7 +206,9 @@ export class MockP4Runner implements P4Runner {
       edited.push(file);
     }
 
-    return success(formatRecords(edited.map((file) => this.openedFields(file))));
+    return success(
+      formatRecords(edited.map((file) => this.openedFields(file))),
+    );
   }
 
   private runAdd(args: string[]): P4Result {
@@ -202,7 +238,9 @@ export class MockP4Runner implements P4Runner {
     const reverted: ZtagField[][] = [];
 
     for (const requested of files) {
-      const fileIndex = this.#state.files.findIndex((file) => this.matches(file, requested));
+      const fileIndex = this.#state.files.findIndex((file) =>
+        this.matches(file, requested),
+      );
       const file = this.#state.files[fileIndex];
       if (file === undefined || file.opened === undefined) {
         continue;
@@ -220,7 +258,9 @@ export class MockP4Runner implements P4Runner {
   }
 
   private runWhere(args: string[]): P4Result {
-    const requested = args.find((argument, index) => index > 0 && !argument.startsWith("-"));
+    const requested = args.find(
+      (argument, index) => index > 0 && !argument.startsWith("-"),
+    );
     const file = requested === undefined ? undefined : this.findFile(requested);
     if (file === undefined) {
       return failure(`${requested ?? ""} - file(s) not in client view.`);
@@ -253,7 +293,9 @@ export class MockP4Runner implements P4Runner {
 
     let changelists = [...(this.#state.changelists ?? [])];
     if (status !== undefined) {
-      changelists = changelists.filter((changelist) => changelist.status === status);
+      changelists = changelists.filter(
+        (changelist) => changelist.status === status,
+      );
     }
     if (max !== undefined && Number.isFinite(max)) {
       changelists = changelists.slice(0, max);
@@ -273,8 +315,12 @@ export class MockP4Runner implements P4Runner {
   }
 
   private runDescribe(args: string[]): P4Result {
-    const change = [...args].reverse().find((argument) => !argument.startsWith("-"));
-    const changelist = this.#state.changelists?.find((item) => item.change === change);
+    const change = [...args]
+      .reverse()
+      .find((argument) => !argument.startsWith("-"));
+    const changelist = this.#state.changelists?.find(
+      (item) => item.change === change,
+    );
     if (changelist === undefined) {
       return failure(`Change ${change ?? ""} unknown.`);
     }
@@ -322,7 +368,7 @@ export class MockP4Runner implements P4Runner {
     return success(formatRecords([[["change", nextChange]]]));
   }
 
-  private runSync(_args: string[]): P4Result {
+  private runSync(): P4Result {
     const records: ZtagField[][] = this.#state.files
       .filter((file) => file.headRev !== undefined)
       .map((file) => [
@@ -393,17 +439,28 @@ export class MockP4Runner implements P4Runner {
     const normalized = normalizePath(requested);
     if (normalized.endsWith("/...")) {
       const prefix = normalized.slice(0, -3);
-      return normalizePath(file.clientFile).startsWith(prefix) || file.depotFile.startsWith(prefix);
+      return (
+        normalizePath(file.clientFile).startsWith(prefix) ||
+        file.depotFile.startsWith(prefix)
+      );
     }
-    return normalizePath(file.clientFile) === normalized || file.depotFile === normalized;
+    return (
+      normalizePath(file.clientFile) === normalized ||
+      file.depotFile === normalized
+    );
   }
 
   private toDepotFile(clientFile: string): string {
     const normalizedRoot = normalizePath(this.#state.root).replace(/\/$/, "");
     const relative = relativePosix(normalizedRoot, clientFile);
-    const trackedFile = this.#state.files.find((file) => file.headRev !== undefined);
+    const trackedFile = this.#state.files.find(
+      (file) => file.headRev !== undefined,
+    );
     if (trackedFile !== undefined) {
-      const trackedRelative = relativePosix(normalizedRoot, normalizePath(trackedFile.clientFile));
+      const trackedRelative = relativePosix(
+        normalizedRoot,
+        normalizePath(trackedFile.clientFile),
+      );
       const suffix = `/${trackedRelative}`;
       const depotRoot = trackedFile.depotFile.endsWith(suffix)
         ? trackedFile.depotFile.slice(0, -suffix.length)
@@ -415,7 +472,9 @@ export class MockP4Runner implements P4Runner {
 
   private parseDescription(input: string): string {
     const lines = input.split(/\r?\n/);
-    const descriptionIndex = lines.findIndex((line) => line.startsWith("Description:"));
+    const descriptionIndex = lines.findIndex((line) =>
+      line.startsWith("Description:"),
+    );
     if (descriptionIndex === -1) {
       return "";
     }
@@ -430,4 +489,3 @@ export class MockP4Runner implements P4Runner {
     return descriptionLines.join("\n").trim();
   }
 }
-

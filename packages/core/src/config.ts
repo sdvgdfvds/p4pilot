@@ -43,7 +43,10 @@ function readFileConfig(cwd: string): FileConfig {
  * Merge configuration: defaults < `.p4pilot.json` (searched from `cwd` upward)
  * < environment variables.
  */
-export function loadConfig(opts?: { cwd?: string; env?: NodeJS.ProcessEnv }): P4PilotConfig {
+export function loadConfig(opts?: {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+}): P4PilotConfig {
   const cwd = opts?.cwd ?? process.cwd();
   const env = opts?.env ?? process.env;
   const fileConfig = readFileConfig(cwd);

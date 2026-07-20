@@ -80,7 +80,14 @@ function build(
   sizeBytes: number | undefined,
   reason: string,
 ): AssetClassification {
-  return { path, kind, filetype, sizeBytes, shouldRead: kind === "text", reason };
+  return {
+    path,
+    kind,
+    filetype,
+    sizeBytes,
+    shouldRead: kind === "text",
+    reason,
+  };
 }
 
 /**
@@ -89,21 +96,46 @@ function build(
  */
 export function classifyAsset(
   path: string,
-  opts?: { stat?: FileStat; sizeBytes?: number; config?: Partial<AssetGuardConfig> },
+  opts?: {
+    stat?: FileStat;
+    sizeBytes?: number;
+    config?: Partial<AssetGuardConfig>;
+  },
 ): AssetClassification {
-  const config: AssetGuardConfig = { ...DEFAULT_ASSET_GUARD_CONFIG, ...opts?.config };
+  const config: AssetGuardConfig = {
+    ...DEFAULT_ASSET_GUARD_CONFIG,
+    ...opts?.config,
+  };
   const ext = extname(path);
   const filetype = opts?.stat?.headType;
   const sizeBytes = opts?.sizeBytes;
 
   if (config.largeAssetExtensions.includes(ext)) {
-    return build(path, "large-asset", filetype, sizeBytes, `large-asset extension ${ext}`);
+    return build(
+      path,
+      "large-asset",
+      filetype,
+      sizeBytes,
+      `large-asset extension ${ext}`,
+    );
   }
   if (isBinaryFiletype(filetype)) {
-    return build(path, "binary", filetype, sizeBytes, `binary p4 filetype ${filetype ?? ""}`);
+    return build(
+      path,
+      "binary",
+      filetype,
+      sizeBytes,
+      `binary p4 filetype ${filetype ?? ""}`,
+    );
   }
   if (config.binaryExtensions.includes(ext)) {
-    return build(path, "binary", filetype, sizeBytes, `binary extension ${ext}`);
+    return build(
+      path,
+      "binary",
+      filetype,
+      sizeBytes,
+      `binary extension ${ext}`,
+    );
   }
   if (sizeBytes !== undefined && sizeBytes > config.maxTextBytes) {
     return build(
@@ -114,5 +146,11 @@ export function classifyAsset(
       `size ${sizeBytes} exceeds maxTextBytes ${config.maxTextBytes}`,
     );
   }
-  return build(path, "text", filetype, sizeBytes, ext ? `text extension ${ext}` : "text file");
+  return build(
+    path,
+    "text",
+    filetype,
+    sizeBytes,
+    ext ? `text extension ${ext}` : "text file",
+  );
 }

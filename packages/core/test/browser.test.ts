@@ -6,7 +6,14 @@ const seed = () =>
     root: "/ws",
     user: "u",
     client: "c",
-    files: [{ depotFile: "//depot/a.cpp", clientFile: "/ws/a.cpp", headType: "text", headRev: 1 }],
+    files: [
+      {
+        depotFile: "//depot/a.cpp",
+        clientFile: "/ws/a.cpp",
+        headType: "text",
+        headRev: 1,
+      },
+    ],
     changelists: [],
   });
 

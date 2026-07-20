@@ -19,8 +19,10 @@ export function parseZtag(stdout: string): ZtagRecord[] {
     } else if (line.startsWith("... ")) {
       const field = line.slice(4);
       const separatorIndex = field.indexOf(" ");
-      const key = separatorIndex === -1 ? field : field.slice(0, separatorIndex);
-      const value = separatorIndex === -1 ? "" : field.slice(separatorIndex + 1);
+      const key =
+        separatorIndex === -1 ? field : field.slice(0, separatorIndex);
+      const value =
+        separatorIndex === -1 ? "" : field.slice(separatorIndex + 1);
       record.set(key, value);
       previousKey = key;
     } else if (previousKey !== undefined) {
@@ -33,7 +35,9 @@ export function parseZtag(stdout: string): ZtagRecord[] {
   return records;
 }
 
-export function groupIndexed(record: ZtagRecord): Record<string, string | string[]> {
+export function groupIndexed(
+  record: ZtagRecord,
+): Record<string, string | string[]> {
   const grouped: Record<string, string | string[]> = {};
   const indexed = new Map<string, Array<{ index: number; value: string }>>();
 
