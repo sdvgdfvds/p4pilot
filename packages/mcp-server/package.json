@@ -2,11 +2,33 @@
   "name": "@p4pilot/mcp-server",
   "version": "0.1.0",
   "description": "MCP server exposing Perforce-native tools for AI coding agents.",
+  "keywords": [
+    "perforce",
+    "p4",
+    "model-context-protocol",
+    "mcp-server",
+    "ai-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sdvgdfvds/p4pilot.git",
+    "directory": "packages/mcp-server"
+  },
+  "homepage": "https://github.com/sdvgdfvds/p4pilot#readme",
+  "bugs": {
+    "url": "https://github.com/sdvgdfvds/p4pilot/issues"
+  },
   "license": "MIT",
   "author": "p4pilot contributors",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
-    "p4pilot-mcp": "./dist/index.js"
+    "p4pilot-mcp": "dist/index.js"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -23,6 +45,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@p4pilot/core": "*",
+    "minimatch": "^10.2.5",
     "zod": "^4.4.0"
   },
   "devDependencies": {

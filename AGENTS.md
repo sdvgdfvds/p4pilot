@@ -56,7 +56,7 @@ p4pilot/
 Run from the repo root:
 
 - Install: `npm install`
-- Test (all): `npm test`  (alias for `vitest run`)
+- Test (all): `npm test` (alias for `vitest run`)
 - Test one file: `npx vitest run packages/core/test/ztag.test.ts`
 - Typecheck: `npm run typecheck`
 - Build: `npm run build`

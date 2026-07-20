@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a reproducible p4pilot problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include Perforce tickets, credentials, or private depot paths.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest offline reproduction, preferably using --mock.
+      placeholder: |
+        1. Start p4pilot with ...
+        2. Call tool ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: 0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected package
+      options:
+        - "@p4pilot/core"
+        - "@p4pilot/mcp-server"
+        - "@p4pilot/web"
+        - Documentation or CI
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      render: text

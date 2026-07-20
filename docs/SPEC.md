@@ -1,8 +1,8 @@
 # p4pilot — Technical Specification
 
-**Status:** authoritative design for the MVP. `docs/PLAN.md` turns this into a
-task-by-task TDD work order. If an interface changes during implementation,
-update this file in the same commit.
+**Status:** authoritative design for the MVP and shipped Phase 2 browser demo.
+`docs/PLAN.md` records the original task-by-task TDD work order. If an interface
+changes during implementation, update this file in the same commit.
 
 ---
 
@@ -13,10 +13,12 @@ can work safely in a game-studio depot: check files out before editing them,
 organize work into changelists, avoid choking on binary assets, search depot
 code, and review changelists like pull requests.
 
-## 2. Non-goals (MVP)
+## 2. Product boundaries
 
-- No GUI/WebView yet (that is Phase 2).
-- No `p4 submit` automation. p4pilot prepares changelists; a human submits.
+- The standalone Phase 2 browser demo is shipped. Embedding it in UE, Maya, or a
+  Perforce desktop client remains future work.
+- No `p4 submit` automation. p4pilot prepares changelists; a human reviews and
+  submits them. No MCP tool may bypass that approval boundary.
 - No embeddings/vector index. Search is text/grep-based (matches how CLI agents
   actually navigate code).
 - No multi-server / replica orchestration.
@@ -25,11 +27,12 @@ code, and review changelists like pull requests.
 
 - **Language/runtime:** TypeScript (strict), Node.js ≥ 20, **ESM only**
   (`"type": "module"`, `moduleResolution: NodeNext`).
-- **Packages:** npm workspaces. Two published packages: `@p4pilot/core`,
-  `@p4pilot/mcp-server`.
+- **Packages:** npm workspaces. Two public packages (`@p4pilot/core`,
+  `@p4pilot/mcp-server`) plus the private `@p4pilot/web` demo.
 - **Tests:** Vitest. **100% offline** — all core logic tested against
   `MockP4Runner`. No live `p4`, no network in tests/CI.
-- **Build:** `tsup` per package (ESM + CJS + `.d.ts`).
+- **Build:** `tsup` for the public packages (ESM + CJS + `.d.ts`); Vite for the
+  browser demo.
 - **Validation:** `zod` for all MCP tool inputs.
 - **Process spawning:** `execa` for the real runner.
 
@@ -48,7 +51,7 @@ export interface P4Result {
 
 export interface P4RunOptions {
   cwd?: string;
-  input?: string;        // stdin, e.g. for `p4 change -i`
+  input?: string; // stdin, e.g. for `p4 change -i`
   env?: Record<string, string>;
 }
 
@@ -82,10 +85,13 @@ export function parseZtag(stdout: string): ZtagRecord[];
  * returning a plain object. e.g. { depotFile: ["//a","//b"], action: ["edit","add"] }
  * Non-indexed fields pass through as strings.
  */
-export function groupIndexed(record: ZtagRecord): Record<string, string | string[]>;
+export function groupIndexed(
+  record: ZtagRecord,
+): Record<string, string | string[]>;
 ```
 
 Parsing rules:
+
 - A line starting with `... ` introduces `key` (up to first space) and `value`
   (remainder, may be empty).
 - Lines NOT starting with `... ` are a continuation of the previous field's
@@ -161,14 +167,34 @@ export class P4Client {
   fstat(files: string[]): Promise<FileStat[]>;
   edit(files: string[], opts?: { changelist?: string }): Promise<OpenedFile[]>;
   add(files: string[], opts?: { changelist?: string }): Promise<OpenedFile[]>;
-  deleteFiles(files: string[], opts?: { changelist?: string }): Promise<OpenedFile[]>;
-  revert(files: string[]): Promise<string[]>;              // reverted depot paths
+  deleteFiles(
+    files: string[],
+    opts?: { changelist?: string },
+  ): Promise<OpenedFile[]>;
+  revert(files: string[]): Promise<string[]>; // reverted depot paths
   sync(paths?: string[]): Promise<{ synced: number }>;
-  where(file: string): Promise<{ depotFile: string; clientFile: string; path: string }>;
-  changes(opts?: { status?: "pending" | "submitted"; max?: number; user?: string }): Promise<ChangelistSummary[]>;
+  where(
+    file: string,
+  ): Promise<{ depotFile: string; clientFile: string; path: string }>;
+  changes(opts?: {
+    status?: "pending" | "submitted";
+    max?: number;
+    user?: string;
+  }): Promise<ChangelistSummary[]>;
   describe(change: string, opts?: { diff?: boolean }): Promise<DescribeResult>;
-  filelog(file: string, opts?: { max?: number }): Promise<Array<{ rev: number; change: string; action: P4Action; user: string; description: string }>>;
-  newChangelist(description: string): Promise<string>;     // returns new CL number
+  filelog(
+    file: string,
+    opts?: { max?: number },
+  ): Promise<
+    Array<{
+      rev: number;
+      change: string;
+      action: P4Action;
+      user: string;
+      description: string;
+    }>
+  >;
+  newChangelist(description: string): Promise<string>; // returns new CL number
   reopen(files: string[], changelist: string): Promise<OpenedFile[]>;
 }
 ```
@@ -184,21 +210,25 @@ export type AssetKind = "text" | "binary" | "large-asset";
 export interface AssetClassification {
   path: string;
   kind: AssetKind;
-  filetype?: string;      // from FileStat.headType when available
+  filetype?: string; // from FileStat.headType when available
   sizeBytes?: number;
-  shouldRead: boolean;    // false for binary/large-asset
-  reason: string;         // human-readable, e.g. "binary extension .uasset"
+  shouldRead: boolean; // false for binary/large-asset
+  reason: string; // human-readable, e.g. "binary extension .uasset"
 }
 
 export interface AssetGuardConfig {
-  binaryExtensions: string[];   // default list incl. .uasset .umap .fbx .psd .tga .png .wav .mp4 .bin .pak …
+  binaryExtensions: string[]; // default list incl. .uasset .umap .fbx .psd .tga .png .wav .mp4 .bin .pak …
   largeAssetExtensions: string[];
-  maxTextBytes: number;         // default 1_000_000
+  maxTextBytes: number; // default 1_000_000
 }
 
 export function classifyAsset(
   path: string,
-  opts?: { stat?: FileStat; sizeBytes?: number; config?: Partial<AssetGuardConfig> }
+  opts?: {
+    stat?: FileStat;
+    sizeBytes?: number;
+    config?: Partial<AssetGuardConfig>;
+  },
 ): AssetClassification;
 
 export const DEFAULT_ASSET_GUARD_CONFIG: AssetGuardConfig;
@@ -212,14 +242,15 @@ size > `maxTextBytes` → `binary`; else `text`. `shouldRead` is true only for
 ### 4.6 Auto-checkout — `src/auto-checkout.ts` (the killer feature)
 
 ```ts
-export type CheckoutStatus = "already-open" | "opened" | "added" | "skipped-untracked-ignored";
+export type CheckoutStatus =
+  "already-open" | "opened" | "added" | "skipped-untracked-ignored";
 
 export interface CheckoutResult {
   path: string;
   status: CheckoutStatus;
   action?: P4Action;
   changelist?: string;
-  asset?: AssetClassification;   // populated so the host can warn on binary edits
+  asset?: AssetClassification; // populated so the host can warn on binary edits
 }
 
 /**
@@ -233,14 +264,14 @@ export interface CheckoutResult {
 export function ensureOpenForEdit(
   client: P4Client,
   localPath: string,
-  opts?: { changelist?: string; assetConfig?: Partial<AssetGuardConfig> }
+  opts?: { changelist?: string; assetConfig?: Partial<AssetGuardConfig> },
 ): Promise<CheckoutResult>;
 
 /** Batch variant; preserves input order, never throws for one bad file (returns per-file result). */
 export function ensureOpenForEditMany(
   client: P4Client,
   localPaths: string[],
-  opts?: { changelist?: string }
+  opts?: { changelist?: string },
 ): Promise<CheckoutResult[]>;
 ```
 
@@ -254,15 +285,15 @@ description; interprets a subset of `p4` subcommands (`fstat`, `opened`, `edit`,
 ```ts
 export interface FakeFile {
   depotFile: string;
-  clientFile: string;      // absolute local path
-  headType?: string;       // "text" | "binary" | "binary+l" | …
+  clientFile: string; // absolute local path
+  headType?: string; // "text" | "binary" | "binary+l" | …
   headRev?: number;
   sizeBytes?: number;
   opened?: { action: P4Action; change: string };
 }
 
 export interface FakeDepotState {
-  root: string;            // client root
+  root: string; // client root
   port?: string;
   client?: string;
   user?: string;
@@ -272,7 +303,7 @@ export interface FakeDepotState {
 
 export class MockP4Runner implements P4Runner {
   constructor(state: FakeDepotState);
-  get state(): FakeDepotState;                 // inspect after operations
+  get state(): FakeDepotState; // inspect after operations
   run(args: string[], opts?: P4RunOptions): Promise<P4Result>;
 }
 ```
@@ -284,15 +315,18 @@ a workflow and assert on resulting state.
 
 ```ts
 export interface P4PilotConfig {
-  p4Path: string;                    // default "p4"
-  mock: boolean;                     // P4PILOT_MOCK=1
+  p4Path: string; // default "p4"
+  mock: boolean; // P4PILOT_MOCK=1
   assetGuard: AssetGuardConfig;
-  defaultChangelistPrefix: string;   // default "[p4pilot] "
+  defaultChangelistPrefix: string; // default "[p4pilot] "
   env: { P4PORT?: string; P4CLIENT?: string; P4USER?: string };
 }
 
 /** Merge: defaults < .p4pilot.json (cwd upward) < environment variables. */
-export function loadConfig(opts?: { cwd?: string; env?: NodeJS.ProcessEnv }): P4PilotConfig;
+export function loadConfig(opts?: {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+}): P4PilotConfig;
 ```
 
 ### 4.9 `src/index.ts`
@@ -309,26 +343,26 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 
 - `p4pilot-mcp [--mock] [--cwd <dir>]`.
 - `--mock` (or `P4PILOT_MOCK=1`) → construct core with a `MockP4Runner` seeded
-  from `examples/mock-depot.json` (bundled) so the server is demoable with zero
-  Perforce setup.
+  by the bundled `createMockDepot()` module so the server is demoable with zero
+  Perforce setup. Each server receives independent mutable state.
 - Otherwise construct `ExecaP4Runner` from `loadConfig()`.
 
 ### 5.2 Tools (each has a zod input schema; each returns structured text content)
 
-| Tool | Input | Behavior |
-|---|---|---|
-| `p4_status` | `{}` | opened files + count summary |
-| `p4_smart_edit` | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
-| `p4_edit` | `{ paths: string[], changelist?: string }` | `client.edit` |
-| `p4_add` | `{ paths: string[], changelist?: string }` | `client.add` |
-| `p4_revert` | `{ paths: string[] }` | `client.revert` |
-| `p4_changelist_create` | `{ description: string }` | `client.newChangelist`, prefixing description with `defaultChangelistPrefix` |
-| `p4_changelist_list` | `{ status?: "pending"|"submitted", max?: number }` | `client.changes` |
-| `p4_describe` | `{ change: string, diff?: boolean }` | `client.describe` |
-| `p4_review` | `{ change: string }` | `describe` with `diff:true`, formatted as a review-ready summary (files + hunks) |
-| `p4_asset_info` | `{ path: string }` | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content |
-| `p4_search` | `{ query: string, glob?: string }` | ripgrep/grep over the client workspace, skipping binary assets via asset-guard |
-| `p4_filelog` | `{ path: string, max?: number }` | `client.filelog` |
+| Tool                   | Input                                      | Behavior                                                                          |
+| ---------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `p4_status`            | `{}`                                       | opened files + count summary                                                      |
+| `p4_smart_edit`        | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
+| `p4_edit`              | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
+| `p4_add`               | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
+| `p4_revert`            | `{ paths: string[] }`                      | `client.revert`                                                                   |
+| `p4_changelist_create` | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
+| `p4_changelist_list`   | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
+| `p4_describe`          | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
+| `p4_review`            | `{ change: string }`                       | `describe` with `diff:true`, formatted as a review-ready summary (files + hunks)  |
+| `p4_asset_info`        | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
+| `p4_search`            | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
+| `p4_filelog`           | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
 
 ### 5.3 Errors
 
@@ -344,7 +378,38 @@ Tool handlers catch `P4PilotError` and return an MCP tool error with the
   `InMemoryTransport`), `listTools`, `callTool("p4_smart_edit", …)`, assert the
   fake depot state changed (file now opened).
 
-## 6. Directory layout (final MVP)
+### 5.5 Human submit boundary
+
+The MCP surface intentionally stops at pending changelists. It may create,
+populate, describe, and review a changelist, but it does not expose `p4 submit`.
+Submission remains a deliberate human action after review.
+
+## 6. Package: `@p4pilot/web`
+
+A private React/Vite static application deployed to GitHub Pages. It imports the
+browser-safe `@p4pilot/core/browser` entry and runs a real `P4Client` against a
+fresh in-memory `MockP4Runner`; it has no backend and never contacts Perforce.
+
+### 6.1 Views
+
+- **Workspace dashboard:** lists fake depot files, asset classifications, open
+  status, smart checkout, revert, asset metadata, and pending changelists.
+- **Changelist review:** selects a pending changelist and renders its files plus
+  a seeded unified diff.
+
+### 6.2 Async behavior
+
+`DemoProvider` owns the mutable store and refreshes view state after mutations.
+Every UI operation has a stable operation key, ignores duplicate in-flight
+requests, exposes a loading state, and maps failures to a dismissible error
+banner. Asset and review responses are guarded against stale updates.
+
+### 6.3 Deployment
+
+The Vite base is `/p4pilot/`. `.github/workflows/pages.yml` builds
+`packages/web/dist` and deploys it to GitHub Pages after pushes to `main`.
+
+### 6.4 Directory layout
 
 ```
 packages/core/
@@ -354,10 +419,14 @@ packages/core/
   test/{ztag,mock-runner,p4-client,asset-guard,auto-checkout,config}.test.ts
 packages/mcp-server/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,server,tools/*}.ts
-  test/{tools,integration}.test.ts
+  src/{index,server,tools,core-factory,mock-depot}.ts
+  test/{tools,integration,core-factory}.test.ts
+packages/web/
+  package.json  vite.config.ts  index.html
+  src/{App,diff,styles}.ts(x)
+  src/components/*.tsx  src/demo/*.ts(x)
 examples/
-  mock-depot.json  claude-code.md  cursor.mcp.json  codex.config.toml
+  claude-code.md  cursor.mcp.json  codex.config.toml
 ```
 
 ## 7. Acceptance criteria (MVP done)
@@ -368,3 +437,6 @@ examples/
    the fake depot end-to-end (proven by the integration test).
 3. Every `@p4pilot/core` public function in §4 has direct tests.
 4. README quickstart snippets match the shipped CLI flags and tool names.
+5. The browser demo builds without Node polyfills, supports checkout/revert and
+   changelist review, reports async failures visibly, and deploys via Pages.
+6. No automated path submits a real changelist; submission remains human-owned.

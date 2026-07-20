@@ -1,5 +1,8 @@
 # p4pilot MCP Tool Reference
 
+> p4pilot intentionally has no `p4_submit` tool. It prepares and reviews pending
+> changelists; a human submits them through the normal Perforce workflow.
+
 `@p4pilot/mcp-server` exposes **12 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
@@ -253,13 +256,13 @@ text files are searched.
 
 Tool errors are formatted as `p4pilot error [CODE]: message`. Codes:
 
-| Code | Meaning |
-|---|---|
-| `P4_NOT_FOUND` | the `p4` binary is not installed / not on `PATH` |
-| `P4_COMMAND_FAILED` | `p4` returned a non-zero exit (message carries stderr) |
-| `NOT_CONNECTED` | no `P4PORT` / not logged in |
-| `FILE_NOT_IN_CLIENT` | path is not mapped into the workspace |
-| `INVALID_INPUT` | the arguments failed validation |
+| Code                 | Meaning                                                |
+| -------------------- | ------------------------------------------------------ |
+| `P4_NOT_FOUND`       | the `p4` binary is not installed / not on `PATH`       |
+| `P4_COMMAND_FAILED`  | `p4` returned a non-zero exit (message carries stderr) |
+| `NOT_CONNECTED`      | no `P4PORT` / not logged in                            |
+| `FILE_NOT_IN_CLIENT` | path is not mapped into the workspace                  |
+| `INVALID_INPUT`      | the arguments failed validation                        |
 
 Example:
 

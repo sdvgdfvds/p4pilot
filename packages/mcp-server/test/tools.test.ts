@@ -8,10 +8,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   assetInfo,
+  add,
   changelistCreate,
   changelistList,
   describe as describeChange,
+  edit,
   filelog,
+  revert,
   review,
   search,
   smartEdit,
@@ -34,7 +37,12 @@ const seed = () =>
     user: "alice",
     client: "ws",
     files: [
-      { depotFile: "//depot/a.c", clientFile: "/ws/a.c", headType: "text", headRev: 2 },
+      {
+        depotFile: "//depot/a.c",
+        clientFile: "/ws/a.c",
+        headType: "text",
+        headRev: 2,
+      },
       {
         depotFile: "//depot/Hero.uasset",
         clientFile: "/ws/Hero.uasset",
@@ -55,14 +63,19 @@ const seed = () =>
     ],
   });
 
-function makeCtx(runner: MockP4Runner, searcher: Searcher = async () => []): ToolContext {
+function makeCtx(
+  runner: MockP4Runner,
+  searcher: Searcher = async () => [],
+): ToolContext {
   return { client: new P4Client(runner), config, search: searcher };
 }
 
 describe("mcp tool handlers", () => {
   it("status: empty, then lists after an edit", async () => {
     const ctx = makeCtx(seed());
-    expect((await status(ctx)).content[0]!.text).toContain("No files are currently open");
+    expect((await status(ctx)).content[0]!.text).toContain(
+      "No files are currently open",
+    );
     await ctx.client.edit(["/ws/a.c"]);
     expect((await status(ctx)).content[0]!.text).toContain("//depot/a.c");
   });
@@ -70,17 +83,61 @@ describe("mcp tool handlers", () => {
   it("smartEdit opens a tracked file", async () => {
     const runner = seed();
     const result = await smartEdit(makeCtx(runner), { paths: ["/ws/a.c"] });
-    expect(runner.state.files.find((f) => f.clientFile === "/ws/a.c")?.opened?.action).toBe("edit");
+    expect(
+      runner.state.files.find((f) => f.clientFile === "/ws/a.c")?.opened
+        ?.action,
+    ).toBe("edit");
     expect(result.content[0]!.text).toContain("opened");
   });
 
   it("smartEdit warns on a binary asset", async () => {
-    const result = await smartEdit(makeCtx(seed()), { paths: ["/ws/Hero.uasset"] });
+    const result = await smartEdit(makeCtx(seed()), {
+      paths: ["/ws/Hero.uasset"],
+    });
     expect(result.content[0]!.text).toContain("large-asset");
   });
 
+  it("edit opens a tracked file in the requested changelist", async () => {
+    const runner = seed();
+    const result = await edit(makeCtx(runner), {
+      paths: ["/ws/a.c"],
+      changelist: "900",
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "edit",
+      change: "900",
+    });
+    expect(result.content[0]!.text).toContain("p4 edit: //depot/a.c");
+  });
+
+  it("add opens a new file in the requested changelist", async () => {
+    const runner = seed();
+    const result = await add(makeCtx(runner), {
+      paths: ["/ws/new.c"],
+      changelist: "901",
+    });
+    expect(
+      runner.state.files.find((file) => file.clientFile === "/ws/new.c")
+        ?.opened,
+    ).toEqual({
+      action: "add",
+      change: "901",
+    });
+    expect(result.content[0]!.text).toContain("p4 add: //depot/new.c");
+  });
+
+  it("revert closes an opened file", async () => {
+    const runner = seed();
+    await runner.run(["edit", "/ws/a.c"]);
+    const result = await revert(makeCtx(runner), { paths: ["/ws/a.c"] });
+    expect(runner.state.files[0]!.opened).toBeUndefined();
+    expect(result.content[0]!.text).toContain("Reverted: //depot/a.c");
+  });
+
   it("changelistCreate prefixes the description and returns a number", async () => {
-    const result = await changelistCreate(makeCtx(seed()), { description: "dash ability" });
+    const result = await changelistCreate(makeCtx(seed()), {
+      description: "dash ability",
+    });
     expect(result.content[0]!.text).toMatch(/\[p4pilot\] dash ability/);
     expect(result.content[0]!.text).toMatch(/changelist \d+/);
   });
@@ -92,12 +149,18 @@ describe("mcp tool handlers", () => {
 
   it("describe and review show the changelist files", async () => {
     const ctx = makeCtx(seed());
-    expect((await describeChange(ctx, { change: "812" })).content[0]!.text).toContain("//depot/a.c");
-    expect((await review(ctx, { change: "812" })).content[0]!.text).toContain("Review of change 812");
+    expect(
+      (await describeChange(ctx, { change: "812" })).content[0]!.text,
+    ).toContain("//depot/a.c");
+    expect((await review(ctx, { change: "812" })).content[0]!.text).toContain(
+      "Review of change 812",
+    );
   });
 
   it("assetInfo withholds bytes for a binary asset", async () => {
-    const result = await assetInfo(makeCtx(seed()), { path: "/ws/Hero.uasset" });
+    const result = await assetInfo(makeCtx(seed()), {
+      path: "/ws/Hero.uasset",
+    });
     expect(result.content[0]!.text).toContain("shouldRead: false");
     expect(result.content[0]!.text).toContain("content withheld");
   });

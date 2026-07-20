@@ -2,8 +2,30 @@
   "name": "@p4pilot/core",
   "version": "0.1.0",
   "description": "Perforce-native core library for AI coding agents.",
+  "keywords": [
+    "perforce",
+    "p4",
+    "ai-agent",
+    "mcp",
+    "game-development"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sdvgdfvds/p4pilot.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/sdvgdfvds/p4pilot#readme",
+  "bugs": {
+    "url": "https://github.com/sdvgdfvds/p4pilot/issues"
+  },
   "license": "MIT",
   "author": "p4pilot contributors",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

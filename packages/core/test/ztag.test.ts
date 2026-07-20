@@ -3,7 +3,8 @@ import { parseZtag, groupIndexed } from "../src/ztag.js";
 
 describe("parseZtag", () => {
   it("parses two records separated by a blank line", () => {
-    const out = "... depotFile //depot/a.c\n... action edit\n\n... depotFile //depot/b.c\n... action add\n";
+    const out =
+      "... depotFile //depot/a.c\n... action edit\n\n... depotFile //depot/b.c\n... action add\n";
     const recs = parseZtag(out);
     expect(recs).toHaveLength(2);
     expect(recs[0]!.get("depotFile")).toBe("//depot/a.c");
@@ -24,7 +25,14 @@ describe("parseZtag", () => {
 
 describe("groupIndexed", () => {
   it("collapses foo0, foo1 into arrays", () => {
-    const rec = new Map([["depotFile0","//a"],["depotFile1","//b"],["change","7"]]);
-    expect(groupIndexed(rec)).toEqual({ depotFile: ["//a","//b"], change: "7" });
+    const rec = new Map([
+      ["depotFile0", "//a"],
+      ["depotFile1", "//b"],
+      ["change", "7"],
+    ]);
+    expect(groupIndexed(rec)).toEqual({
+      depotFile: ["//a", "//b"],
+      change: "7",
+    });
   });
 });

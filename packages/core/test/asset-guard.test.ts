@@ -25,7 +25,9 @@ describe("classifyAsset", () => {
   });
 
   it("treats oversized text as binary", () => {
-    expect(classifyAsset("/ws/big.json", { sizeBytes: 5_000_000 }).kind).toBe("binary");
+    expect(classifyAsset("/ws/big.json", { sizeBytes: 5_000_000 }).kind).toBe(
+      "binary",
+    );
   });
 
   it("shouldRead is false for binary and large-asset files", () => {

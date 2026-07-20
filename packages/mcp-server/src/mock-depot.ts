@@ -1,13 +1,8 @@
-import type { FakeDepotState } from "@p4pilot/core/browser";
+import type { FakeDepotState } from "@p4pilot/core/testing";
 
-export interface DemoSeed {
-  depot: FakeDepotState;
-  /** depotFile -> before/after text, so the review view can render a real diff. */
-  contents: Record<string, { before: string; after: string }>;
-}
-
-export function makeSeed(): DemoSeed {
-  const depot: FakeDepotState = {
+/** Create a fresh, believable game workspace for zero-setup mock mode. */
+export function createMockDepot(): FakeDepotState {
+  return {
     root: "/depot/game",
     port: "ssl:perforce.example.com:1666",
     client: "p4pilot-demo",
@@ -53,12 +48,4 @@ export function makeSeed(): DemoSeed {
       },
     ],
   };
-  const contents: DemoSeed["contents"] = {
-    "//depot/game/src/player.cpp": {
-      before: "void Player::Update(float dt) {\n  Move(dt);\n}\n",
-      after:
-        "void Player::Update(float dt) {\n  Move(dt);\n  if (input.Pressed(Dash)) {\n    StartDash();\n  }\n}\n",
-    },
-  };
-  return { depot, contents };
 }

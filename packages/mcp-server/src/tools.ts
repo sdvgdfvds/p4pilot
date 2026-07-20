@@ -15,7 +15,10 @@ export interface SearchHit {
   text: string;
 }
 
-export type Searcher = (query: string, opts?: { glob?: string }) => Promise<SearchHit[]>;
+export type Searcher = (
+  query: string,
+  opts?: { glob?: string },
+) => Promise<SearchHit[]>;
 
 export interface ToolContext {
   client: P4Client;
@@ -47,7 +50,9 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
       const detail = error.detail ? ` — ${error.detail}` : "";
       return fail(`p4pilot error [${error.code}]: ${error.message}${detail}`);
     }
-    return fail(`internal error: ${error instanceof Error ? error.message : String(error)}`);
+    return fail(
+      `internal error: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -56,7 +61,9 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
 export async function status(ctx: ToolContext): Promise<ToolResult> {
   const opened = await ctx.client.opened();
   if (opened.length === 0) return ok("No files are currently open.");
-  const lines = opened.map((file) => `${file.action}\t${file.depotFile} (change ${file.change})`);
+  const lines = opened.map(
+    (file) => `${file.action}\t${file.depotFile} (change ${file.change})`,
+  );
   return ok(`${opened.length} open file(s):\n${lines.join("\n")}`);
 }
 
@@ -77,7 +84,9 @@ export async function smartEdit(
         : "";
     return `${result.status}\t${result.path}${cl}${warn}`;
   });
-  return ok(`Ensured ${results.length} path(s) open for edit:\n${lines.join("\n")}`);
+  return ok(
+    `Ensured ${results.length} path(s) open for edit:\n${lines.join("\n")}`,
+  );
 }
 
 async function openOp(
@@ -85,13 +94,35 @@ async function openOp(
   op: "edit" | "add",
   args: { paths: string[]; changelist?: string },
 ): Promise<ToolResult> {
-  const opts = args.changelist === undefined ? undefined : { changelist: args.changelist };
+  const opts =
+    args.changelist === undefined ? undefined : { changelist: args.changelist };
   const opened =
-    op === "edit" ? await ctx.client.edit(args.paths, opts) : await ctx.client.add(args.paths, opts);
-  return ok(`p4 ${op}: ${opened.map((file) => file.depotFile).join(", ") || "(none)"}`);
+    op === "edit"
+      ? await ctx.client.edit(args.paths, opts)
+      : await ctx.client.add(args.paths, opts);
+  return ok(
+    `p4 ${op}: ${opened.map((file) => file.depotFile).join(", ") || "(none)"}`,
+  );
 }
 
-export async function revert(ctx: ToolContext, args: { paths: string[] }): Promise<ToolResult> {
+export function edit(
+  ctx: ToolContext,
+  args: { paths: string[]; changelist?: string },
+): Promise<ToolResult> {
+  return openOp(ctx, "edit", args);
+}
+
+export function add(
+  ctx: ToolContext,
+  args: { paths: string[]; changelist?: string },
+): Promise<ToolResult> {
+  return openOp(ctx, "add", args);
+}
+
+export async function revert(
+  ctx: ToolContext,
+  args: { paths: string[] },
+): Promise<ToolResult> {
   const reverted = await ctx.client.revert(args.paths);
   return ok(`Reverted: ${reverted.join(", ") || "(none)"}`);
 }
@@ -100,7 +131,10 @@ export async function changelistCreate(
   ctx: ToolContext,
   args: { description: string },
 ): Promise<ToolResult> {
-  const description = buildChangelistDescription(args.description, ctx.config.defaultChangelistPrefix);
+  const description = buildChangelistDescription(
+    args.description,
+    ctx.config.defaultChangelistPrefix,
+  );
   const change = await ctx.client.newChangelist(description);
   return ok(`Created pending changelist ${change}: ${description}`);
 }
@@ -109,9 +143,16 @@ export async function changelistList(
   ctx: ToolContext,
   args: { status?: "pending" | "submitted"; max?: number },
 ): Promise<ToolResult> {
-  const changes = await ctx.client.changes({ status: args.status, max: args.max });
+  const changes = await ctx.client.changes({
+    status: args.status,
+    max: args.max,
+  });
   if (changes.length === 0) return ok("No changelists found.");
-  return ok(changes.map((cl) => `${cl.change}\t${cl.status}\t${cl.description}`).join("\n"));
+  return ok(
+    changes
+      .map((cl) => `${cl.change}\t${cl.status}\t${cl.description}`)
+      .join("\n"),
+  );
 }
 
 function formatDescribe(
@@ -129,14 +170,32 @@ export async function describe(
   ctx: ToolContext,
   args: { change: string; diff?: boolean },
 ): Promise<ToolResult> {
-  const result = await ctx.client.describe(args.change, args.diff ? { diff: true } : undefined);
-  const files = result.files.map((file) => `  ${file.action}\t${file.depotFile}`).join("\n");
-  return ok(formatDescribe(result.change, result.user, result.description, files, result.diff));
+  const result = await ctx.client.describe(
+    args.change,
+    args.diff ? { diff: true } : undefined,
+  );
+  const files = result.files
+    .map((file) => `  ${file.action}\t${file.depotFile}`)
+    .join("\n");
+  return ok(
+    formatDescribe(
+      result.change,
+      result.user,
+      result.description,
+      files,
+      result.diff,
+    ),
+  );
 }
 
-export async function review(ctx: ToolContext, args: { change: string }): Promise<ToolResult> {
+export async function review(
+  ctx: ToolContext,
+  args: { change: string },
+): Promise<ToolResult> {
   const result = await ctx.client.describe(args.change, { diff: true });
-  const files = result.files.map((file) => `  ${file.action}\t${file.depotFile}`).join("\n");
+  const files = result.files
+    .map((file) => `  ${file.action}\t${file.depotFile}`)
+    .join("\n");
   const diff = result.diff ?? "(no diff available)";
   return ok(
     `Review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
@@ -144,7 +203,10 @@ export async function review(ctx: ToolContext, args: { change: string }): Promis
   );
 }
 
-export async function assetInfo(ctx: ToolContext, args: { path: string }): Promise<ToolResult> {
+export async function assetInfo(
+  ctx: ToolContext,
+  args: { path: string },
+): Promise<ToolResult> {
   const [stat] = await ctx.client.fstat([args.path]);
   const asset = classifyAsset(args.path, { stat });
   const lines = [
@@ -185,7 +247,10 @@ export async function search(
   ctx: ToolContext,
   args: { query: string; glob?: string },
 ): Promise<ToolResult> {
-  const hits = await ctx.search(args.query, args.glob === undefined ? undefined : { glob: args.glob });
+  const hits = await ctx.search(
+    args.query,
+    args.glob === undefined ? undefined : { glob: args.glob },
+  );
   const visible = hits.filter((hit) => classifyAsset(hit.file).shouldRead);
   if (visible.length === 0) return ok(`No matches for "${args.query}".`);
   return ok(
@@ -202,27 +267,39 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
 
   server.registerTool(
     "p4_status",
-    { title: "Perforce status", description: "List files currently open in the workspace." },
+    {
+      title: "Perforce status",
+      description: "List files currently open in the workspace.",
+    },
     () => guard(() => status(ctx)),
   );
   server.registerTool(
     "p4_smart_edit",
     {
       title: "Smart checkout",
-      description: "Ensure the given files are open for edit (or add) before modifying them.",
+      description:
+        "Ensure the given files are open for edit (or add) before modifying them.",
       inputSchema: { paths, changelist },
     },
     (args) => guard(() => smartEdit(ctx, args)),
   );
   server.registerTool(
     "p4_edit",
-    { title: "p4 edit", description: "Open files for edit.", inputSchema: { paths, changelist } },
-    (args) => guard(() => openOp(ctx, "edit", args)),
+    {
+      title: "p4 edit",
+      description: "Open files for edit.",
+      inputSchema: { paths, changelist },
+    },
+    (args) => guard(() => edit(ctx, args)),
   );
   server.registerTool(
     "p4_add",
-    { title: "p4 add", description: "Open new files for add.", inputSchema: { paths, changelist } },
-    (args) => guard(() => openOp(ctx, "add", args)),
+    {
+      title: "p4 add",
+      description: "Open new files for add.",
+      inputSchema: { paths, changelist },
+    },
+    (args) => guard(() => add(ctx, args)),
   );
   server.registerTool(
     "p4_revert",
@@ -258,7 +335,8 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     "p4_describe",
     {
       title: "Describe changelist",
-      description: "Show a changelist's metadata and files (optionally a diff).",
+      description:
+        "Show a changelist's metadata and files (optionally a diff).",
       inputSchema: { change: z.string(), diff: z.boolean().optional() },
     },
     (args) => guard(() => describe(ctx, args)),
@@ -276,7 +354,8 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     "p4_asset_info",
     {
       title: "Asset info",
-      description: "Classify a file; for binary/large assets return metadata instead of bytes.",
+      description:
+        "Classify a file; for binary/large assets return metadata instead of bytes.",
       inputSchema: { path: z.string() },
     },
     (args) => guard(() => assetInfo(ctx, args)),
@@ -286,7 +365,10 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     {
       title: "File history",
       description: "Show a file's revision history.",
-      inputSchema: { path: z.string(), max: z.number().int().positive().optional() },
+      inputSchema: {
+        path: z.string(),
+        max: z.number().int().positive().optional(),
+      },
     },
     (args) => guard(() => filelog(ctx, args)),
   );

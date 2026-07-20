@@ -11,6 +11,8 @@ describe("makeSeed", () => {
     expect(makeSeed().depot).not.toBe(makeSeed().depot);
   });
   it("carries before/after content for the changed file", () => {
-    expect(makeSeed().contents["//depot/game/src/player.cpp"]!.after).toContain("StartDash");
+    expect(makeSeed().contents["//depot/game/src/player.cpp"]!.after).toContain(
+      "StartDash",
+    );
   });
 });

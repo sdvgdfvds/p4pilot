@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-66%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,13 +20,22 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 66 tests, green in CI, and runnable today with zero Perforce via
+> tested — 81 tests, green in CI, and runnable today with zero Perforce via
 > `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
 > now live.
 >
 > **▶ Live demo (no install):** https://sdvgdfvds.github.io/p4pilot/
 
 ## See it in action
+
+<p align="center">
+  <a href="https://sdvgdfvds.github.io/p4pilot/">
+    <picture>
+      <source media="(max-width: 700px)" srcset="./docs/assets/demo-dashboard-mobile.png">
+      <img src="./docs/assets/demo-dashboard.png" alt="p4pilot workspace dashboard showing guarded assets and pending changelists">
+    </picture>
+  </a>
+</p>
 
 The agent is about to edit two files. p4pilot checks them out first — into the
 right changelist — and flags the binary asset **before** it's touched:
@@ -73,38 +82,41 @@ intercepted file writes to enforce `p4 edit`.** Until you build that bridge,
 
 ## What it does
 
-| Capability | What it means for the agent |
-|---|---|
-| 🔓 **Smart auto-checkout** | Before the agent edits a file, p4pilot ensures it's `p4 edit`-ed (or `p4 add`-ed if new) into the right changelist. The exact hook studios hand-roll — built in. |
-| 🗂️ **Changelist-aware planning** | The agent groups its work into pending changelists with generated descriptions, instead of dumping everything into `default`. |
-| 🛡️ **Binary-asset guard** | `.uasset`/`.fbx`/`.psd` and other large binaries are detected and returned as **metadata** (type, size, last change, who touched it) instead of choking the context window with binary bytes. |
-| 🔎 **Depot code search** | Fast text search over the synced workspace that automatically skips binary assets. |
-| 👀 **Changelist code review** | Turn a pending or shelved changelist into a structured, review-ready diff — "PR review" for Perforce. |
-| 🧾 **History & blame** | `filelog`/`describe`-backed history so the agent can answer "who changed this and why". |
+| Capability                       | What it means for the agent                                                                                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔓 **Smart auto-checkout**       | Before the agent edits a file, p4pilot ensures it's `p4 edit`-ed (or `p4 add`-ed if new) into the right changelist. The exact hook studios hand-roll — built in.                              |
+| 🗂️ **Changelist-aware planning** | The agent groups its work into pending changelists with generated descriptions, instead of dumping everything into `default`.                                                                 |
+| 🛡️ **Binary-asset guard**        | `.uasset`/`.fbx`/`.psd` and other large binaries are detected and returned as **metadata** (type, size, last change, who touched it) instead of choking the context window with binary bytes. |
+| 🔎 **Depot code search**         | Fast text search over the synced workspace that automatically skips binary assets.                                                                                                            |
+| 👀 **Changelist code review**    | Turn a pending or shelved changelist into a structured, review-ready diff — "PR review" for Perforce.                                                                                         |
+| 🧾 **History & blame**           | `filelog`/`describe`-backed history so the agent can answer "who changed this and why".                                                                                                       |
 
 All exposed as **MCP tools**, so any MCP client (Claude Code, Cursor, Codex,
 JetBrains, …) gets Perforce fluency with zero custom glue. See the full
 [tool reference](./docs/TOOLS.md).
 
+### Human-controlled submission
+
+p4pilot deliberately stops at prepared, reviewable changelists. It does not
+expose `p4 submit`: a human reviews the diff and submits through their normal
+Perforce workflow. This is a product safety boundary, not a missing tool.
+
 ## How it compares
 
-| | git-only agents | raw `p4` MCP wrappers | **p4pilot** |
-|---|:--:|:--:|:--:|
-| Works on a Perforce depot | ❌ | ✅ | ✅ |
-| **Auto-checkout before edit** | ❌ | ❌ | ✅ |
-| Binary-asset guarding | ❌ | ❌ | ✅ |
-| Changelist-aware task planning | ❌ | ❌ | ✅ |
-| Changelist code review | partial | ❌ | ✅ |
-| Zero-setup mock mode for demos/CI | — | rarely | ✅ |
+|                                   | git-only agents | raw `p4` MCP wrappers | **p4pilot** |
+| --------------------------------- | :-------------: | :-------------------: | :---------: |
+| Works on a Perforce depot         |       ❌        |          ✅           |     ✅      |
+| **Auto-checkout before edit**     |       ❌        |          ❌           |     ✅      |
+| Binary-asset guarding             |       ❌        |          ❌           |     ✅      |
+| Changelist-aware task planning    |       ❌        |          ❌           |     ✅      |
+| Changelist code review            |     partial     |          ❌           |     ✅      |
+| Zero-setup mock mode for demos/CI |        —        |        rarely         |     ✅      |
 
 ## Quickstart
 
 > Requires Node.js ≥ 20. A real Perforce connection uses your existing
 > `P4PORT`/`P4CLIENT`/`P4USER` (or `.p4config`). No Perforce? Use **mock mode**
 > below to try everything with an in-memory fake depot.
->
-> The `npx` commands assume the package is published to npm. Until then, use
-> [Run from source](#run-from-source-until-published-to-npm) — it works today.
 
 ### Try it with a fake depot (no Perforce needed)
 
@@ -126,9 +138,12 @@ claude mcp add p4pilot -- npx -y @p4pilot/mcp-server
     "p4pilot": {
       "command": "npx",
       "args": ["-y", "@p4pilot/mcp-server"],
-      "env": { "P4PORT": "ssl:perforce.example.com:1666", "P4CLIENT": "my-workspace" }
-    }
-  }
+      "env": {
+        "P4PORT": "ssl:perforce.example.com:1666",
+        "P4CLIENT": "my-workspace",
+      },
+    },
+  },
 }
 ```
 
@@ -140,7 +155,7 @@ command = "npx"
 args = ["-y", "@p4pilot/mcp-server"]
 ```
 
-### Run from source (until published to npm)
+### Run from source
 
 ```bash
 git clone https://github.com/sdvgdfvds/p4pilot.git
@@ -185,6 +200,7 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] **MVP:** core (runner/parser/client/auto-checkout/asset-guard) + MCP server
 - [x] Polish: examples, CI, tool reference & architecture docs
 - [x] **Phase 2:** React demo panel (changelist dashboard + review UI), live in-browser on GitHub Pages
+- [x] Human-owned submit boundary: p4pilot prepares and reviews; a person submits
 - [ ] Embed the review panel in PC client / **UE / Maya** WebViews
 - [ ] Shelved-changelist review workflow
 - [ ] Asset dependency surfacing (UE `.uasset` references)

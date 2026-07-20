@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 import { classifyAsset, type P4Client } from "@p4pilot/core";
+import { minimatch } from "minimatch";
 
 import type { Searcher, SearchHit } from "./tools.js";
 
@@ -17,18 +18,15 @@ function walk(dir: string, onFile: (path: string) => void): void {
   }
   for (const name of names) {
     const full = join(dir, name);
-    let isDir = false;
-    let isFile = false;
+    let stats;
     try {
-      const stats = statSync(full);
-      isDir = stats.isDirectory();
-      isFile = stats.isFile();
+      stats = statSync(full);
     } catch {
       continue;
     }
-    if (isDir) {
+    if (stats.isDirectory()) {
       if (!IGNORE_DIRS.has(name)) walk(full, onFile);
-    } else if (isFile) {
+    } else if (stats.isFile()) {
       onFile(full);
     }
   }
@@ -40,7 +38,7 @@ function walk(dir: string, onFile: (path: string) => void): void {
  * never touch the filesystem.
  */
 export function createNodeSearcher(client: P4Client): Searcher {
-  return async (query, _opts) => {
+  return async (query, opts) => {
     const info = await client.info();
     const root = info.clientRoot;
     if (root === undefined || root.length === 0) return [];
@@ -48,6 +46,12 @@ export function createNodeSearcher(client: P4Client): Searcher {
     const regex = new RegExp(query);
     const hits: SearchHit[] = [];
     walk(root, (file) => {
+      const workspacePath = relative(root, file).replaceAll("\\", "/");
+      if (
+        opts?.glob &&
+        !minimatch(workspacePath, opts.glob, { dot: true, matchBase: true })
+      )
+        return;
       if (!classifyAsset(file).shouldRead) return;
       let content: string;
       try {
@@ -59,7 +63,8 @@ export function createNodeSearcher(client: P4Client): Searcher {
       const lines = content.split(/\r?\n/);
       for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index]!;
-        if (regex.test(line)) hits.push({ file, line: index + 1, text: line.trim() });
+        if (regex.test(line))
+          hits.push({ file, line: index + 1, text: line.trim() });
       }
     });
     return hits;
