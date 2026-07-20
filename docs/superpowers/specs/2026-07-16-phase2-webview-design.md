@@ -5,8 +5,8 @@
 
 ## 1. Goal
 
-Ship a **clickable, zero-install web demo** of p4pilot that a hiring reviewer
-(target: miHoYo coding-agent role) can open from a URL and interact with — the
+Ship a **clickable, zero-install web demo** of p4pilot that a technical reviewer
+can open from a URL and interact with — the
 Phase 2 "React WebView panel (changelist dashboard + review UI)" from the
 roadmap, delivered first as a **standalone static site**.
 
@@ -22,7 +22,7 @@ mock-first, fully-offline approach.
 - Connecting to a real Perforce server from the browser (impossible/undesired).
 - `p4 submit`, authentication, multi-workspace switching.
 - Real UE / Maya / PC-client embedding. The app is a plain static React bundle,
-  so it is *embeddable by construction*, but wiring it into those hosts is a
+  so it is _embeddable by construction_, but wiring it into those hosts is a
   follow-up, not this deliverable.
 - Depot search UI (optional stretch, not in MVP).
 
@@ -134,15 +134,15 @@ mock. `DemoStore` exposes methods that mirror the MCP tools 1:1
 
 - Pick a pending changelist → file list (action + depot path) from
   `P4Client.describe`, plus a **real unified diff** per changed file.
-- **Diff source:** core's mock has no file contents, so the *web demo seed*
+- **Diff source:** core's mock has no file contents, so the _web demo seed_
   carries `before`/`after` text per changed file; `DiffView` computes and renders
   the unified diff in-browser (line adds/removes colored). This is honest — the
   structure/metadata come from real core; only the file contents are demo seed.
 
 ### Header
 
-A one-line banner: *"Running the real `@p4pilot/core` engine in your browser —
-mock depot, no server."* plus a link back to the GitHub repo.
+A one-line banner: _"Running the real `@p4pilot/core` engine in your browser —
+mock depot, no server."_ plus a link back to the GitHub repo.
 
 ## 5. Deploy
 
