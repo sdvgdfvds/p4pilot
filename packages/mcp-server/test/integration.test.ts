@@ -23,15 +23,30 @@ const seed = () =>
     root: "/ws",
     user: "alice",
     client: "ws",
-    files: [{ depotFile: "//depot/a.c", clientFile: "/ws/a.c", headType: "text", headRev: 1 }],
+    files: [
+      {
+        depotFile: "//depot/a.c",
+        clientFile: "/ws/a.c",
+        headType: "text",
+        headRev: 1,
+      },
+    ],
     changelists: [],
   });
 
 async function connectClient(runner: MockP4Runner): Promise<Client> {
-  const server = createServer({ client: new P4Client(runner), config, search: async () => [] });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const server = createServer({
+    client: new P4Client(runner),
+    config,
+    search: async () => [],
+  });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test-client", version: "0.0.0" });
-  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  await Promise.all([
+    server.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
   return client;
 }
 
@@ -61,15 +76,63 @@ describe("mcp-server integration (InMemoryTransport)", () => {
   it("p4_smart_edit opens a file end-to-end", async () => {
     const runner = seed();
     const client = await connectClient(runner);
-    await client.callTool({ name: "p4_smart_edit", arguments: { paths: ["/ws/a.c"] } });
-    expect(runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened?.action).toBe(
-      "edit",
-    );
+    await client.callTool({
+      name: "p4_smart_edit",
+      arguments: { paths: ["/ws/a.c"] },
+    });
+    expect(
+      runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened
+        ?.action,
+    ).toBe("edit");
+  });
+
+  it("routes edit, revert, and add through MCP schemas", async () => {
+    const runner = seed();
+    const client = await connectClient(runner);
+
+    await client.callTool({
+      name: "p4_edit",
+      arguments: { paths: ["/ws/a.c"], changelist: "900" },
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "edit",
+      change: "900",
+    });
+
+    await client.callTool({
+      name: "p4_revert",
+      arguments: { paths: ["/ws/a.c"] },
+    });
+    expect(runner.state.files[0]!.opened).toBeUndefined();
+
+    await client.callTool({
+      name: "p4_add",
+      arguments: { paths: ["/ws/new.c"], changelist: "901" },
+    });
+    expect(
+      runner.state.files.find((file) => file.clientFile === "/ws/new.c")
+        ?.opened,
+    ).toEqual({
+      action: "add",
+      change: "901",
+    });
+  });
+
+  it("rejects an empty paths array at the MCP schema boundary", async () => {
+    const client = await connectClient(seed());
+    const result = await client.callTool({
+      name: "p4_edit",
+      arguments: { paths: [] },
+    });
+    expect(result.isError).toBe(true);
   });
 
   it("maps a P4PilotError to a tool error carrying its code", async () => {
     const client = await connectClient(seed());
-    const result = await client.callTool({ name: "p4_describe", arguments: { change: "999999" } });
+    const result = await client.callTool({
+      name: "p4_describe",
+      arguments: { change: "999999" },
+    });
     expect(result.isError).toBe(true);
     const content = result.content as Array<{ type: string; text: string }>;
     expect(content[0]!.text).toContain("P4_COMMAND_FAILED");
