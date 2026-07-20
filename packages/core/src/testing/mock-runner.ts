@@ -129,6 +129,8 @@ export class MockP4Runner implements P4Runner {
         return this.runChanges(commandArgs);
       case "describe":
         return this.runDescribe(commandArgs);
+      case "diff":
+        return success();
       case "change":
         return this.runChange(commandArgs, opts);
       case "sync":

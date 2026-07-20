@@ -17,11 +17,11 @@ npm pack 门禁。GitHub Actions CI 和 GitHub Pages 部署已启用。
 - `@p4pilot/core`：Perforce runner、ztag parser、typed client、auto-checkout、
   asset guard、changelist helpers，以及离线 `MockP4Runner`。
 - `@p4pilot/mcp-server`：12 个 MCP 工具；`--mock` 模式无需 Perforce。
-- npm：`@p4pilot/core@0.1.0` 与 `@p4pilot/mcp-server@0.1.0` 已公开发布。
+- npm：`@p4pilot/core@0.1.1` 与 `@p4pilot/mcp-server@0.1.1` 已公开发布。
 - `@p4pilot/web`：使用真实 core 和内存假仓的浏览器 Demo，包含工作区仪表盘、
   smart checkout、资产信息和 changelist review。
 - Web Demo 已接通 Revert、加载/错误状态、重复操作保护，并包含响应式截图。
-- 测试：根目录共 81 个用例，全部离线运行；CI 不连接真实 Perforce。
+- 测试：根目录共 83 个用例，全部离线运行；CI 不连接真实 Perforce。
 - 工程门禁：Prettier、ESLint、TypeScript、Vitest coverage、build 和 npm pack。
 
 ## 接手方式

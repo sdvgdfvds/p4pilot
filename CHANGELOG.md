@@ -6,6 +6,15 @@ All notable changes to p4pilot are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-20
+
+### Fixed
+
+- Preserve the requested changelist in real `p4 edit`, `p4 add`, and
+  `p4 reopen` results when Helix Core omits it from command output.
+- Parse multi-record output from real pending changelists and include their
+  workspace unified diff in `p4_describe` and `p4_review`.
+
 ## [0.1.0] - 2026-07-20
 
 ### Added
@@ -30,5 +39,6 @@ All notable changes to p4pilot are documented here. The format follows
 - React browser demo with workspace and changelist review views.
 - Offline Vitest suite, GitHub Actions CI, and GitHub Pages deployment.
 
-[Unreleased]: https://github.com/sdvgdfvds/p4pilot/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sdvgdfvds/p4pilot/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/sdvgdfvds/p4pilot/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/sdvgdfvds/p4pilot/releases/tag/v0.1.0

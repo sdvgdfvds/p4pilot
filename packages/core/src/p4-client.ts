@@ -33,6 +33,38 @@ function asArray(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
+function mergeRecords(
+  records: Array<Map<string, string>>,
+): Map<string, string> {
+  const merged = new Map<string, string>();
+  for (const record of records) {
+    for (const [key, value] of record) merged.set(key, value);
+  }
+  return merged;
+}
+
+function extractUnifiedDiff(stdout: string): string | undefined {
+  const lines: string[] = [];
+  let depotFile: string | undefined;
+  let inHunk = false;
+
+  for (const line of stdout.split(/\r?\n/)) {
+    if (line.startsWith("... depotFile ")) {
+      depotFile = line.slice("... depotFile ".length);
+      inHunk = false;
+    } else if (line.startsWith("@@")) {
+      if (depotFile !== undefined) lines.push(`--- ${depotFile}`);
+      lines.push(line);
+      inHunk = true;
+    } else if (inHunk && !line.startsWith("... ")) {
+      lines.push(line);
+    }
+  }
+
+  const diff = lines.join("\n").trimEnd();
+  return diff.length === 0 ? undefined : diff;
+}
+
 function toOpenedFile(record: Map<string, string>): OpenedFile {
   return {
     depotFile: record.get("depotFile") ?? "",
@@ -150,7 +182,13 @@ export class P4Client {
     if (opts?.changelist) args.push("-c", opts.changelist);
     args.push(...files);
     const { stdout } = await this.#run(args);
-    return parseZtag(stdout).map(toOpenedFile);
+    const opened = parseZtag(stdout).map(toOpenedFile);
+    const requestedChangelist = opts?.changelist;
+    if (requestedChangelist === undefined) return opened;
+    return opened.map((file) => ({
+      ...file,
+      change: requestedChangelist,
+    }));
   }
 
   async revert(files: string[]): Promise<string[]> {
@@ -208,13 +246,14 @@ export class P4Client {
     if (opts?.diff) args.push("-du");
     args.push(change);
     const { stdout } = await this.#run(args);
-    const record = parseZtag(stdout)[0];
-    if (!record) {
+    const records = parseZtag(stdout);
+    if (records.length === 0) {
       throw new P4PilotError(
         `p4 describe returned nothing for ${change}`,
         "P4_COMMAND_FAILED",
       );
     }
+    const record = mergeRecords(records);
     const grouped = groupIndexed(record);
     const depotFiles = asArray(grouped.depotFile);
     const actions = asArray(grouped.action);
@@ -224,12 +263,17 @@ export class P4Client {
       action: (actions[index] ?? "edit") as P4Action,
       rev: revs[index] === undefined ? undefined : Number(revs[index]),
     }));
+    let diff = str(grouped.diff) ?? extractUnifiedDiff(stdout);
+    if (opts?.diff && grouped.status === "pending" && depotFiles.length > 0) {
+      const result = await this.#run(["diff", "-du", ...depotFiles]);
+      diff = extractUnifiedDiff(result.stdout);
+    }
     return {
       change: str(grouped.change) ?? change,
       description: str(grouped.desc) ?? "",
       user: str(grouped.user),
       files,
-      diff: str(grouped.diff),
+      diff,
     };
   }
 
@@ -276,6 +320,9 @@ export class P4Client {
   async reopen(files: string[], changelist: string): Promise<OpenedFile[]> {
     if (files.length === 0) return [];
     const { stdout } = await this.#run(["reopen", "-c", changelist, ...files]);
-    return parseZtag(stdout).map(toOpenedFile);
+    return parseZtag(stdout).map((record) => ({
+      ...toOpenedFile(record),
+      change: changelist,
+    }));
   }
 }
