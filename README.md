@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-83%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-97%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 83 tests, green in CI, and runnable today with zero Perforce via
+> tested — 97 tests, green in CI, and runnable today with zero Perforce via
 > `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
 > now live.
 >
@@ -55,7 +55,7 @@ edit	//depot/game/src/main.cpp (change 813)
 edit	//depot/game/Content/Hero.uasset (change 813)
 ```
 
-Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 16
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 17
 tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists
@@ -202,7 +202,7 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] **Phase 2:** React demo panel (changelist dashboard + review UI), live in-browser on GitHub Pages
 - [x] Human-owned submit boundary: p4pilot prepares and reviews; a person submits
 - [ ] Embed the review panel in PC client / **UE / Maya** WebViews
-- [ ] Shelved-changelist review workflow
+- [x] Shelved-changelist review workflow (`p4_shelved_review`)
 - [ ] Asset dependency surfacing (UE `.uasset` references)
 
 ## Contributing

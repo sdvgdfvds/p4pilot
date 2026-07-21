@@ -242,8 +242,23 @@ export async function review(
     .join("\n");
   const diff = result.diff ?? "(no diff available)";
   return ok(
-    `Review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
+    `Workspace review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
       `${result.description}\n\nFiles:\n${files}\n\nDiff:\n${diff}`,
+  );
+}
+
+export async function shelvedReview(
+  ctx: ToolContext,
+  args: { change: string },
+): Promise<ToolResult> {
+  const result = await ctx.client.describeShelved(args.change);
+  const files = result.files
+    .map((file) => `  ${file.action}\t${file.depotFile}`)
+    .join("\n");
+  const diff = result.diff ?? "(no text diff available)";
+  return ok(
+    `Shelved review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
+      `${result.description}\n\nFiles:\n${files}\n\nShelved diff:\n${diff}`,
   );
 }
 
@@ -430,6 +445,16 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: { change: z.string() },
     },
     (args) => guard(() => review(ctx, args)),
+  );
+  server.registerTool(
+    "p4_shelved_review",
+    {
+      title: "Review shelved changelist",
+      description:
+        "Review files shelved on the server without changing the workspace.",
+      inputSchema: { change: z.string().min(1) },
+    },
+    (args) => guard(() => shelvedReview(ctx, args)),
   );
   server.registerTool(
     "p4_asset_info",

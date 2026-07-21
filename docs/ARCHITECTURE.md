@@ -65,10 +65,19 @@ interface P4Runner {
 `ExecaP4Runner` always injects `-ztag` as the first global arg for parseable
 output and **never throws on non-zero exit** — it returns the `P4Result` and lets
 `P4Client` decide. `MockP4Runner` interprets a subset of subcommands (`info`,
-`fstat`, `opened`, `edit`, `add`, `revert`, `where`, `changes`, `describe`,
-`change -i`, `sync`, `filelog`) against an in-memory `FakeDepotState` and mutates
-that state, so tests drive a real workflow and assert on the result. This single
-seam is why CI needs no Perforce.
+`fstat`, `opened`, `edit`, `add`, `delete`, `revert`, `reopen`, `where`,
+`changes`, `describe`, `describe -S`, `change -i`, `sync`, `filelog`) against an
+in-memory `FakeDepotState`. Mutating commands update the state; shelved review
+fixtures return server-side diffs without changing it. This single seam is why
+CI needs no Perforce.
+
+## Pending and shelved review
+
+`p4_review` reads pending work from the current workspace. `p4_shelved_review`
+instead calls typed core method `describeShelved`, which runs
+`p4 describe -S -du <change>`. The parser combines indexed file metadata across
+multiple ztag records while preserving each raw unified diff segment. No sync or
+unshelve command is involved, so reviewing a shelf cannot alter current files.
 
 ## Browser demo
 

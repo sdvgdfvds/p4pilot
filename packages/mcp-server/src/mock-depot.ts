@@ -47,5 +47,28 @@ export function createMockDepot(): FakeDepotState {
         files: ["//depot/game/src/player.cpp"],
       },
     ],
+    shelvedChangelists: [
+      {
+        change: "814",
+        description: "shelved: player dash cooldown",
+        user: "demo",
+        client: "p4pilot-demo",
+        files: [
+          {
+            depotFile: "//depot/game/src/player.cpp",
+            action: "edit",
+            rev: 7,
+            type: "text",
+            diff:
+              "--- //depot/game/src/player.cpp#7\n" +
+              "+++ //depot/game/src/player.cpp@=814\n" +
+              "@@ -40,3 +40,4 @@\n" +
+              " void Player::Dash() {\n" +
+              "+  cooldown_.Start();\n" +
+              " }",
+          },
+        ],
+      },
+    ],
   };
 }

@@ -141,6 +141,10 @@ export interface DescribeResult {
   diff?: string;         // unified diff text when requested
 }
 
+export interface ShelvedReviewResult extends DescribeResult {
+  reviewType: "shelved";
+}
+
 export class P4PilotError extends Error {
   constructor(message: string, readonly code: P4PilotErrorCode, readonly detail?: string);
 }
@@ -149,6 +153,7 @@ export type P4PilotErrorCode =
   | "P4_COMMAND_FAILED"  // non-zero exit
   | "NOT_CONNECTED"      // no P4PORT/login
   | "FILE_NOT_IN_CLIENT" // path not mapped to workspace
+  | "NO_SHELVED_FILES"   // successful describe response had no shelves
   | "INVALID_INPUT";
 ```
 
@@ -182,6 +187,7 @@ export class P4Client {
     user?: string;
   }): Promise<ChangelistSummary[]>;
   describe(change: string, opts?: { diff?: boolean }): Promise<DescribeResult>;
+  describeShelved(change: string): Promise<ShelvedReviewResult>;
   filelog(
     file: string,
     opts?: { max?: number },
@@ -198,6 +204,12 @@ export class P4Client {
   reopen(files: string[], changelist: string): Promise<OpenedFile[]>;
 }
 ```
+
+`describeShelved` runs `p4 describe -S -du <change>`. It parses indexed file
+metadata across multiple ztag records and returns every unified diff segment
+without syncing, unshelving, or otherwise changing the workspace. A successful
+response with no shelved files raises `NO_SHELVED_FILES`; a non-zero Perforce
+response remains `P4_COMMAND_FAILED`.
 
 `newChangelist` uses `p4 change -i` with a generated change spec on stdin and
 parses the resulting `Change NNNN created.` message.
@@ -300,6 +312,23 @@ export interface FakeDepotState {
   user?: string;
   files: FakeFile[];
   changelists?: ChangelistSummary[];
+  shelvedChangelists?: FakeShelvedChangelist[];
+}
+
+export interface FakeShelvedFile {
+  depotFile: string;
+  action: P4Action;
+  rev?: number;
+  type?: string;
+  diff?: string;
+}
+
+export interface FakeShelvedChangelist {
+  change: string;
+  description: string;
+  user?: string;
+  client?: string;
+  files: FakeShelvedFile[];
 }
 
 export class MockP4Runner implements P4Runner {
@@ -364,7 +393,8 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 | `p4_changelist_create` | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
 | `p4_changelist_list`   | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
 | `p4_describe`          | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
-| `p4_review`            | `{ change: string }`                       | `describe` with `diff:true`, formatted as a review-ready summary (files + hunks)  |
+| `p4_review`            | `{ change: string }`                       | pending workspace review via `describe` with `diff:true`                          |
+| `p4_shelved_review`    | `{ change: string }`                       | server-side shelved review via `client.describeShelved`; never changes workspace  |
 | `p4_asset_info`        | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
 | `p4_search`            | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
 | `p4_filelog`           | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
@@ -385,9 +415,9 @@ Tool handlers catch `P4PilotError` and return an MCP tool error with the
 
 ### 5.5 Human submit boundary
 
-The MCP surface intentionally stops at pending changelists. It may create,
-populate, describe, and review a changelist, but it does not expose `p4 submit`.
-Submission remains a deliberate human action after review.
+The MCP surface intentionally stops at pending and shelved changelists. It may
+create, populate, describe, and review a changelist, but it does not expose
+`p4 submit`. Submission remains a deliberate human action after review.
 
 ## 6. Package: `@p4pilot/web`
 

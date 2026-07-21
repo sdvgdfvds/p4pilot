@@ -17,6 +17,23 @@ const seed = () =>
         sizeBytes: 10,
       },
     ],
+    shelvedChangelists: [
+      {
+        change: "44",
+        description: "shelved change",
+        user: "u",
+        client: "c",
+        files: [
+          {
+            depotFile: "//depot/a.c",
+            action: "edit",
+            rev: 1,
+            type: "text",
+            diff: "--- //depot/a.c#1\n+++ //depot/a.c@=44\n@@ -1 +1 @@\n-old\n+new",
+          },
+        ],
+      },
+    ],
   });
 
 describe("MockP4Runner", () => {
@@ -59,5 +76,11 @@ describe("MockP4Runner", () => {
   it("sync honors requested paths", async () => {
     const result = await seed().run(["sync", "/ws/a.c"]);
     expect(parseZtag(result.stdout)).toHaveLength(1);
+  });
+  it("describe -S emits shelved fixture metadata and unified diff", async () => {
+    const result = await seed().run(["describe", "-S", "-du", "44"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("... depotFile0 //depot/a.c");
+    expect(result.stdout).toContain("+++ //depot/a.c@=44");
   });
 });

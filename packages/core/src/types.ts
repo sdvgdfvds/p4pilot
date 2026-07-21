@@ -44,6 +44,10 @@ export interface DescribeResult {
   diff?: string;
 }
 
+export interface ShelvedReviewResult extends DescribeResult {
+  reviewType: "shelved";
+}
+
 export class P4PilotError extends Error {
   constructor(
     message: string,
@@ -60,4 +64,5 @@ export type P4PilotErrorCode =
   | "P4_COMMAND_FAILED"
   | "NOT_CONNECTED"
   | "FILE_NOT_IN_CLIENT"
+  | "NO_SHELVED_FILES"
   | "INVALID_INPUT";

@@ -5,6 +5,7 @@ import type {
   FileStat,
   OpenedFile,
   P4Action,
+  ShelvedReviewResult,
 } from "./types.js";
 import { P4PilotError } from "./types.js";
 import { groupIndexed, parseZtag } from "./ztag.js";
@@ -46,23 +47,70 @@ function mergeRecords(
 function extractUnifiedDiff(stdout: string): string | undefined {
   const lines: string[] = [];
   let depotFile: string | undefined;
-  let inHunk = false;
+  let inDiff = false;
+  let hasFileHeaders = false;
 
   for (const line of stdout.split(/\r?\n/)) {
     if (line.startsWith("... depotFile ")) {
       depotFile = line.slice("... depotFile ".length);
-      inHunk = false;
-    } else if (line.startsWith("@@")) {
-      if (depotFile !== undefined) lines.push(`--- ${depotFile}`);
+      inDiff = false;
+      hasFileHeaders = false;
+    } else if (line.startsWith("... ")) {
+      continue;
+    } else if (line.startsWith("==== ")) {
+      if (lines.length > 0 && lines.at(-1) !== "") lines.push("");
       lines.push(line);
-      inHunk = true;
-    } else if (inHunk && !line.startsWith("... ")) {
+      inDiff = true;
+    } else if (line.startsWith("--- ")) {
+      if (lines.length > 0 && lines.at(-1) !== "" && !inDiff) lines.push("");
+      lines.push(line);
+      inDiff = true;
+      hasFileHeaders = true;
+    } else if (line.startsWith("+++ ")) {
+      lines.push(line);
+      inDiff = true;
+      hasFileHeaders = true;
+    } else if (line.startsWith("@@")) {
+      if (!hasFileHeaders && depotFile !== undefined) {
+        lines.push(`--- ${depotFile}`, `+++ ${depotFile}`);
+        hasFileHeaders = true;
+      }
+      lines.push(line);
+      inDiff = true;
+    } else if (inDiff) {
       lines.push(line);
     }
   }
 
   const diff = lines.join("\n").trimEnd();
   return diff.length === 0 ? undefined : diff;
+}
+
+function parseDescribeOutput(stdout: string, change: string): DescribeResult {
+  const records = parseZtag(stdout);
+  if (records.length === 0) {
+    throw new P4PilotError(
+      `p4 describe returned nothing for ${change}`,
+      "P4_COMMAND_FAILED",
+    );
+  }
+  const record = mergeRecords(records);
+  const grouped = groupIndexed(record);
+  const depotFiles = asArray(grouped.depotFile);
+  const actions = asArray(grouped.action);
+  const revs = asArray(grouped.rev);
+  const files = depotFiles.map((depotFile, index) => ({
+    depotFile,
+    action: (actions[index] ?? "edit") as P4Action,
+    rev: revs[index] === undefined ? undefined : Number(revs[index]),
+  }));
+  return {
+    change: str(grouped.change) ?? change,
+    description: str(grouped.desc) ?? "",
+    user: str(grouped.user),
+    files,
+    diff: str(grouped.diff) ?? extractUnifiedDiff(stdout),
+  };
 }
 
 function toOpenedFile(record: Map<string, string>): OpenedFile {
@@ -246,35 +294,29 @@ export class P4Client {
     if (opts?.diff) args.push("-du");
     args.push(change);
     const { stdout } = await this.#run(args);
-    const records = parseZtag(stdout);
-    if (records.length === 0) {
+    const described = parseDescribeOutput(stdout, change);
+    const status = str(groupIndexed(mergeRecords(parseZtag(stdout))).status);
+    if (opts?.diff && status === "pending" && described.files.length > 0) {
+      const result = await this.#run([
+        "diff",
+        "-du",
+        ...described.files.map((file) => file.depotFile),
+      ]);
+      described.diff = extractUnifiedDiff(result.stdout);
+    }
+    return described;
+  }
+
+  async describeShelved(change: string): Promise<ShelvedReviewResult> {
+    const { stdout } = await this.#run(["describe", "-S", "-du", change]);
+    const described = parseDescribeOutput(stdout, change);
+    if (described.files.length === 0) {
       throw new P4PilotError(
-        `p4 describe returned nothing for ${change}`,
-        "P4_COMMAND_FAILED",
+        `change ${change} has no shelved files`,
+        "NO_SHELVED_FILES",
       );
     }
-    const record = mergeRecords(records);
-    const grouped = groupIndexed(record);
-    const depotFiles = asArray(grouped.depotFile);
-    const actions = asArray(grouped.action);
-    const revs = asArray(grouped.rev);
-    const files = depotFiles.map((depotFile, index) => ({
-      depotFile,
-      action: (actions[index] ?? "edit") as P4Action,
-      rev: revs[index] === undefined ? undefined : Number(revs[index]),
-    }));
-    let diff = str(grouped.diff) ?? extractUnifiedDiff(stdout);
-    if (opts?.diff && grouped.status === "pending" && depotFiles.length > 0) {
-      const result = await this.#run(["diff", "-du", ...depotFiles]);
-      diff = extractUnifiedDiff(result.stdout);
-    }
-    return {
-      change: str(grouped.change) ?? change,
-      description: str(grouped.desc) ?? "",
-      user: str(grouped.user),
-      files,
-      diff,
-    };
+    return { ...described, reviewType: "shelved" };
   }
 
   async filelog(

@@ -152,6 +152,71 @@ describe("P4Client", () => {
     expect(described.diff).toContain("+new");
   });
 
+  it("describeShelved() parses multi-record ztag metadata and unified diffs", async () => {
+    const calls: string[][] = [];
+    const runner: P4Runner = {
+      async run(args) {
+        calls.push(args);
+        return ok(
+          "... change 734\n" +
+            "... user alice\n" +
+            "... desc shelved gameplay changes\n" +
+            "second description line\n\n" +
+            "... status pending\n" +
+            "... shelved 1\n" +
+            "... depotFile0 //depot/a.c\n" +
+            "... action0 edit\n" +
+            "... rev0 4\n" +
+            "... depotFile1 //depot/new.c\n" +
+            "... action1 add\n" +
+            "... rev1 1\n\n" +
+            "... depotFile //depot/a.c\n" +
+            "... type text\n" +
+            "--- //depot/a.c#4\n" +
+            "+++ //depot/a.c@=734\n" +
+            "@@ -1 +1 @@\n" +
+            "-old a\n" +
+            "+new a\n\n" +
+            "... depotFile //depot/new.c\n" +
+            "... type text\n" +
+            "--- /dev/null\n" +
+            "+++ //depot/new.c@=734\n" +
+            "@@ -0,0 +1 @@\n" +
+            "+new file\n",
+        );
+      },
+    };
+
+    const described = await new P4Client(runner).describeShelved("734");
+
+    expect(calls).toEqual([["describe", "-S", "-du", "734"]]);
+    expect(described.reviewType).toBe("shelved");
+    expect(described.description).toBe(
+      "shelved gameplay changes\nsecond description line",
+    );
+    expect(described.files).toEqual([
+      { depotFile: "//depot/a.c", action: "edit", rev: 4 },
+      { depotFile: "//depot/new.c", action: "add", rev: 1 },
+    ]);
+    expect(described.diff).toContain("--- //depot/a.c#4");
+    expect(described.diff).toContain("+++ //depot/new.c@=734");
+    expect(described.diff).toContain("@@ -0,0 +1 @@");
+  });
+
+  it("describeShelved() reports a successful response with no shelves", async () => {
+    const runner: P4Runner = {
+      async run() {
+        return ok(
+          "... change 735\n... user alice\n... desc pending only\n... status pending\n",
+        );
+      },
+    };
+
+    await expect(
+      new P4Client(runner).describeShelved("735"),
+    ).rejects.toMatchObject({ code: "NO_SHELVED_FILES" });
+  });
+
   it("filelog() returns revision history", async () => {
     const client = new P4Client(seed());
     const log = await client.filelog("/ws/a.c");

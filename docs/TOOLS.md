@@ -1,9 +1,10 @@
 # p4pilot MCP Tool Reference
 
 > p4pilot intentionally has no `p4_submit` tool. It prepares and reviews pending
-> changelists; a human submits them through the normal Perforce workflow.
+> or shelved changelists; a human submits them through the normal Perforce
+> workflow.
 
-`@p4pilot/mcp-server` exposes **16 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **17 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
 (see [Error codes](#error-codes)).
@@ -210,14 +211,14 @@ Files:
 
 ## `p4_review`
 
-Turn a changelist into a review-ready summary — "PR review" for Perforce.
-Always fetches the diff.
+Review pending workspace work. This reads the current workspace diff, so use
+`p4_shelved_review` when the review source is a server-side shelf.
 
 **Input:** `{ change: string }`
 
 ```text
 $ p4_review { "change": "812" }
-Review of change 812 — 1 file(s), by demo
+Workspace review of change 812 — 1 file(s), by demo
 wip: player dash ability
 
 Files:
@@ -240,6 +241,37 @@ Diff:
 ```
 
 _(illustrative — requires a real Perforce connection)_
+
+---
+
+## `p4_shelved_review`
+
+Review the files and unified diff stored in a server-side shelf without syncing,
+unshelving, or modifying the current workspace. The implementation follows the
+official [`p4 describe -S`](https://help.perforce.com/helix-core/server-apps/cmdref/current/Content/CmdRef/p4_describe.html)
+behavior and requests `-du` unified output.
+
+**Input:** `{ change: string }`
+
+```text
+$ p4_shelved_review { "change": "814" }
+Shelved review of change 814 — 1 file(s), by demo
+shelved: player dash cooldown
+
+Files:
+  edit  //depot/game/src/player.cpp
+
+Shelved diff:
+--- //depot/game/src/player.cpp#7
++++ //depot/game/src/player.cpp@=814
+@@ -40,3 +40,4 @@
+ void Player::Dash() {
++  cooldown_.Start();
+ }
+```
+
+This tool is distinct from `p4_review`: it reads immutable shelf content from
+the server rather than unsaved edits in the current client workspace.
 
 ---
 
@@ -320,6 +352,7 @@ Tool errors are formatted as `p4pilot error [CODE]: message`. Codes:
 | `P4_COMMAND_FAILED`  | `p4` returned a non-zero exit (message carries stderr) |
 | `NOT_CONNECTED`      | no `P4PORT` / not logged in                            |
 | `FILE_NOT_IN_CLIENT` | path is not mapped into the workspace                  |
+| `NO_SHELVED_FILES`   | changelist exists but contains no shelved files        |
 | `INVALID_INPUT`      | the arguments failed validation                        |
 
 Example:

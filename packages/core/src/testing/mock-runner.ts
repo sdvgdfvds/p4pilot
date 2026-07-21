@@ -17,6 +17,23 @@ export interface FakeDepotState {
   user?: string;
   files: FakeFile[];
   changelists?: ChangelistSummary[];
+  shelvedChangelists?: FakeShelvedChangelist[];
+}
+
+export interface FakeShelvedFile {
+  depotFile: string;
+  action: P4Action;
+  rev?: number;
+  type?: string;
+  diff?: string;
+}
+
+export interface FakeShelvedChangelist {
+  change: string;
+  description: string;
+  user?: string;
+  client?: string;
+  files: FakeShelvedFile[];
 }
 
 type ZtagField = readonly [key: string, value: string | number | undefined];
@@ -360,6 +377,9 @@ export class MockP4Runner implements P4Runner {
     const change = [...args]
       .reverse()
       .find((argument) => !argument.startsWith("-"));
+    if (args.includes("-S")) {
+      return this.runDescribeShelved(change);
+    }
     const changelist = this.#state.changelists?.find(
       (item) => item.change === change,
     );
@@ -382,6 +402,43 @@ export class MockP4Runner implements P4Runner {
     }
 
     return success(formatRecords([fields]));
+  }
+
+  private runDescribeShelved(change: string | undefined): P4Result {
+    const changelist = this.#state.shelvedChangelists?.find(
+      (item) => item.change === change,
+    );
+    if (changelist === undefined) {
+      return failure(`Change ${change ?? ""} has no shelved files.`);
+    }
+
+    const fields: ZtagField[] = [
+      ["change", changelist.change],
+      ["desc", changelist.description],
+      ["user", changelist.user],
+      ["client", changelist.client],
+      ["status", "pending"],
+      ["shelved", "1"],
+    ];
+    for (const [index, file] of changelist.files.entries()) {
+      fields.push([`depotFile${index}`, file.depotFile]);
+      fields.push([`action${index}`, file.action]);
+      fields.push([`rev${index}`, file.rev]);
+      fields.push([`type${index}`, file.type]);
+    }
+
+    const records = [formatRecord(fields)];
+    for (const file of changelist.files) {
+      if (file.diff === undefined) continue;
+      records.push(
+        `${formatRecord([
+          ["depotFile", file.depotFile],
+          ["rev", file.rev],
+          ["type", file.type],
+        ])}\n${file.diff}`,
+      );
+    }
+    return success(`${records.join("\n\n")}\n`);
   }
 
   private runChange(args: string[], opts?: P4RunOptions): P4Result {

@@ -32,6 +32,23 @@ const seed = () =>
       },
     ],
     changelists: [],
+    shelvedChangelists: [
+      {
+        change: "814",
+        description: "shelved integration review",
+        user: "alice",
+        client: "ws",
+        files: [
+          {
+            depotFile: "//depot/a.c",
+            action: "edit",
+            rev: 1,
+            type: "text",
+            diff: "--- //depot/a.c#1\n+++ //depot/a.c@=814\n@@ -1 +1 @@\n-old\n+new",
+          },
+        ],
+      },
+    ],
   });
 
 async function connectClient(runner: MockP4Runner): Promise<Client> {
@@ -70,12 +87,13 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_changelist_list",
         "p4_describe",
         "p4_review",
+        "p4_shelved_review",
         "p4_asset_info",
         "p4_filelog",
         "p4_search",
       ]),
     );
-    expect(tools).toHaveLength(16);
+    expect(tools).toHaveLength(17);
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {
@@ -89,6 +107,41 @@ describe("mcp-server integration (InMemoryTransport)", () => {
       runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened
         ?.action,
     ).toBe("edit");
+  });
+
+  it("routes shelved review without changing workspace state", async () => {
+    const runner = seed();
+    const before = structuredClone(runner.state.files);
+    const client = await connectClient(runner);
+    const result = await client.callTool({
+      name: "p4_shelved_review",
+      arguments: { change: "814" },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("Shelved review of change 814"),
+        }),
+      ]),
+    );
+    expect(runner.state.files).toEqual(before);
+  });
+
+  it("returns a typed tool error when a changelist has no shelves", async () => {
+    const client = await connectClient(seed());
+    const result = await client.callTool({
+      name: "p4_shelved_review",
+      arguments: { change: "999" },
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("P4_COMMAND_FAILED"),
+        }),
+      ]),
+    );
   });
 
   it("routes edit, revert, and add through MCP schemas", async () => {
