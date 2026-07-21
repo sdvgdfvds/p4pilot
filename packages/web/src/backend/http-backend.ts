@@ -12,6 +12,8 @@ type Fetcher = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+const defaultFetcher: Fetcher = (input, init) => globalThis.fetch(input, init);
+
 interface ErrorResponse {
   error?: { code?: string; message?: string };
 }
@@ -49,7 +51,7 @@ export class HttpBackend implements P4PilotBackend {
   readonly #baseUrl: string;
   readonly #fetch: Fetcher;
 
-  constructor(baseUrl: string, fetcher: Fetcher = fetch) {
+  constructor(baseUrl: string, fetcher: Fetcher = defaultFetcher) {
     this.#baseUrl = baseUrl.replace(/\/$/, "");
     this.#fetch = fetcher;
   }
