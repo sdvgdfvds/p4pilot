@@ -3,7 +3,7 @@
 > p4pilot intentionally has no `p4_submit` tool. It prepares and reviews pending
 > changelists; a human submits them through the normal Perforce workflow.
 
-`@p4pilot/mcp-server` exposes **12 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **16 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
 (see [Error codes](#error-codes)).
@@ -98,6 +98,64 @@ Revert opened files, discarding pending changes.
 ```text
 $ p4_revert { "paths": ["/depot/game/src/player.cpp"] }
 Reverted: //depot/game/src/player.cpp
+```
+
+---
+
+## `p4_delete`
+
+Open tracked files for delete, optionally in a numbered pending changelist.
+This prepares a delete for human review; it does not submit the changelist.
+
+**Input:** `{ paths: string[] (>=1), changelist?: string }`
+
+```text
+$ p4_delete { "paths": ["/depot/game/src/obsolete.cpp"], "changelist": "813" }
+p4 delete: //depot/game/src/obsolete.cpp
+```
+
+---
+
+## `p4_sync`
+
+Sync the whole workspace, or only the supplied paths, to the latest revision.
+
+**Input:** `{ paths?: string[] (>=1) }`
+
+```text
+$ p4_sync { "paths": ["/depot/game/src/player.cpp"] }
+Synced 1 file(s).
+```
+
+Pass `{}` to sync the whole workspace.
+
+---
+
+## `p4_reopen`
+
+Move files that are already open into a numbered pending changelist without
+changing their actions.
+
+**Input:** `{ paths: string[] (>=1), changelist: string }`
+
+```text
+$ p4_reopen { "paths": ["/depot/game/src/player.cpp"], "changelist": "813" }
+Reopened in changelist 813: //depot/game/src/player.cpp
+```
+
+---
+
+## `p4_where`
+
+Show how one file maps between depot, client, and local filesystem paths.
+
+**Input:** `{ path: string }`
+
+```text
+$ p4_where { "path": "/depot/game/src/player.cpp" }
+depotFile: //depot/game/src/player.cpp
+clientFile: //p4pilot-demo/src/player.cpp
+path: /depot/game/src/player.cpp
 ```
 
 ---

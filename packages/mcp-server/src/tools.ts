@@ -127,6 +127,50 @@ export async function revert(
   return ok(`Reverted: ${reverted.join(", ") || "(none)"}`);
 }
 
+export async function deleteFiles(
+  ctx: ToolContext,
+  args: { paths: string[]; changelist?: string },
+): Promise<ToolResult> {
+  const opts =
+    args.changelist === undefined ? undefined : { changelist: args.changelist };
+  const opened = await ctx.client.deleteFiles(args.paths, opts);
+  return ok(
+    `p4 delete: ${opened.map((file) => file.depotFile).join(", ") || "(none)"}`,
+  );
+}
+
+export async function sync(
+  ctx: ToolContext,
+  args: { paths?: string[] },
+): Promise<ToolResult> {
+  const result = await ctx.client.sync(args.paths);
+  return ok(`Synced ${result.synced} file(s).`);
+}
+
+export async function reopen(
+  ctx: ToolContext,
+  args: { paths: string[]; changelist: string },
+): Promise<ToolResult> {
+  const opened = await ctx.client.reopen(args.paths, args.changelist);
+  return ok(
+    `Reopened in changelist ${args.changelist}: ${opened.map((file) => file.depotFile).join(", ") || "(none)"}`,
+  );
+}
+
+export async function where(
+  ctx: ToolContext,
+  args: { path: string },
+): Promise<ToolResult> {
+  const mapping = await ctx.client.where(args.path);
+  return ok(
+    [
+      `depotFile: ${mapping.depotFile}`,
+      `clientFile: ${mapping.clientFile}`,
+      `path: ${mapping.path}`,
+    ].join("\n"),
+  );
+}
+
 export async function changelistCreate(
   ctx: ToolContext,
   args: { description: string },
@@ -309,6 +353,43 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: { paths: z.array(z.string()).min(1) },
     },
     (args) => guard(() => revert(ctx, args)),
+  );
+  server.registerTool(
+    "p4_delete",
+    {
+      title: "p4 delete",
+      description: "Open tracked files for delete.",
+      inputSchema: { paths, changelist },
+    },
+    (args) => guard(() => deleteFiles(ctx, args)),
+  );
+  server.registerTool(
+    "p4_sync",
+    {
+      title: "p4 sync",
+      description:
+        "Sync the workspace or selected paths to the latest revision.",
+      inputSchema: { paths: paths.optional() },
+    },
+    (args) => guard(() => sync(ctx, args)),
+  );
+  server.registerTool(
+    "p4_reopen",
+    {
+      title: "p4 reopen",
+      description: "Move opened files to a pending changelist.",
+      inputSchema: { paths, changelist: z.string().min(1) },
+    },
+    (args) => guard(() => reopen(ctx, args)),
+  );
+  server.registerTool(
+    "p4_where",
+    {
+      title: "p4 where",
+      description: "Show the depot, client, and local path mapping for a file.",
+      inputSchema: { path: z.string().min(1) },
+    },
+    (args) => guard(() => where(ctx, args)),
   );
   server.registerTool(
     "p4_changelist_create",

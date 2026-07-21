@@ -61,7 +61,11 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_smart_edit",
         "p4_edit",
         "p4_add",
+        "p4_delete",
         "p4_revert",
+        "p4_sync",
+        "p4_reopen",
+        "p4_where",
         "p4_changelist_create",
         "p4_changelist_list",
         "p4_describe",
@@ -71,6 +75,7 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_search",
       ]),
     );
+    expect(tools).toHaveLength(16);
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {
@@ -115,6 +120,49 @@ describe("mcp-server integration (InMemoryTransport)", () => {
     ).toEqual({
       action: "add",
       change: "901",
+    });
+  });
+
+  it("routes delete, sync, reopen, and where through MCP schemas", async () => {
+    const runner = seed();
+    const client = await connectClient(runner);
+
+    const whereResult = await client.callTool({
+      name: "p4_where",
+      arguments: { path: "/ws/a.c" },
+    });
+    expect(whereResult.isError).not.toBe(true);
+    expect(whereResult.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("//depot/a.c"),
+        }),
+      ]),
+    );
+
+    const syncResult = await client.callTool({
+      name: "p4_sync",
+      arguments: { paths: ["/ws/a.c"] },
+    });
+    expect(syncResult.isError).not.toBe(true);
+
+    await client.callTool({
+      name: "p4_edit",
+      arguments: { paths: ["/ws/a.c"] },
+    });
+    await client.callTool({
+      name: "p4_reopen",
+      arguments: { paths: ["/ws/a.c"], changelist: "904" },
+    });
+    expect(runner.state.files[0]!.opened?.change).toBe("904");
+
+    await client.callTool({
+      name: "p4_delete",
+      arguments: { paths: ["/ws/a.c"], changelist: "905" },
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "delete",
+      change: "905",
     });
   });
 

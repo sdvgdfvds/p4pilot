@@ -121,8 +121,12 @@ export class MockP4Runner implements P4Runner {
         return this.runEdit(commandArgs);
       case "add":
         return this.runAdd(commandArgs);
+      case "delete":
+        return this.runDelete(commandArgs);
       case "revert":
         return this.runRevert(commandArgs);
+      case "reopen":
+        return this.runReopen(commandArgs);
       case "where":
         return this.runWhere(commandArgs);
       case "changes":
@@ -134,7 +138,7 @@ export class MockP4Runner implements P4Runner {
       case "change":
         return this.runChange(commandArgs, opts);
       case "sync":
-        return this.runSync();
+        return this.runSync(commandArgs);
       case "filelog":
         return this.runFilelog(commandArgs);
       default:
@@ -235,6 +239,24 @@ export class MockP4Runner implements P4Runner {
     return success(formatRecords(added.map((file) => this.openedFields(file))));
   }
 
+  private runDelete(args: string[]): P4Result {
+    const { change, files } = parseCommandFiles(args);
+    const deleted: FakeFile[] = [];
+
+    for (const requested of files) {
+      const file = this.findFile(requested);
+      if (file === undefined || file.headRev === undefined) {
+        return failure(`${requested} - no such file(s).`);
+      }
+      file.opened = { action: "delete", change };
+      deleted.push(file);
+    }
+
+    return success(
+      formatRecords(deleted.map((file) => this.openedFields(file))),
+    );
+  }
+
   private runRevert(args: string[]): P4Result {
     const { files } = parseCommandFiles(args);
     const reverted: ZtagField[][] = [];
@@ -257,6 +279,24 @@ export class MockP4Runner implements P4Runner {
     }
 
     return success(formatRecords(reverted));
+  }
+
+  private runReopen(args: string[]): P4Result {
+    const { change, files } = parseCommandFiles(args);
+    const reopened: FakeFile[] = [];
+
+    for (const requested of files) {
+      const file = this.findFile(requested);
+      if (file === undefined || file.opened === undefined) {
+        return failure(`${requested} - file(s) not opened on this client.`);
+      }
+      file.opened = { ...file.opened, change };
+      reopened.push(file);
+    }
+
+    return success(
+      formatRecords(reopened.map((file) => this.openedFields(file))),
+    );
   }
 
   private runWhere(args: string[]): P4Result {
@@ -370,8 +410,15 @@ export class MockP4Runner implements P4Runner {
     return success(formatRecords([[["change", nextChange]]]));
   }
 
-  private runSync(): P4Result {
-    const records: ZtagField[][] = this.#state.files
+  private runSync(args: string[]): P4Result {
+    const requested = args
+      .slice(1)
+      .filter((argument) => !argument.startsWith("-"));
+    const files =
+      requested.length === 0
+        ? this.#state.files
+        : requested.flatMap((path) => this.findFiles(path));
+    const records: ZtagField[][] = files
       .filter((file) => file.headRev !== undefined)
       .map((file) => [
         ["depotFile", file.depotFile],

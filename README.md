@@ -55,7 +55,7 @@ edit	//depot/game/src/main.cpp (change 813)
 edit	//depot/game/Content/Hero.uasset (change 813)
 ```
 
-Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 12
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 16
 tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists

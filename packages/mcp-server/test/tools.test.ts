@@ -11,14 +11,18 @@ import {
   add,
   changelistCreate,
   changelistList,
+  deleteFiles,
   describe as describeChange,
   edit,
   filelog,
+  reopen,
   revert,
   review,
   search,
   smartEdit,
   status,
+  sync,
+  where,
   type Searcher,
   type ToolContext,
 } from "../src/tools.js";
@@ -132,6 +136,45 @@ describe("mcp tool handlers", () => {
     const result = await revert(makeCtx(runner), { paths: ["/ws/a.c"] });
     expect(runner.state.files[0]!.opened).toBeUndefined();
     expect(result.content[0]!.text).toContain("Reverted: //depot/a.c");
+  });
+
+  it("deleteFiles opens a tracked file for delete in the requested changelist", async () => {
+    const runner = seed();
+    const result = await deleteFiles(makeCtx(runner), {
+      paths: ["/ws/a.c"],
+      changelist: "902",
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "delete",
+      change: "902",
+    });
+    expect(result.content[0]!.text).toContain("p4 delete: //depot/a.c");
+  });
+
+  it("sync supports explicit paths and reports the synced count", async () => {
+    const result = await sync(makeCtx(seed()), { paths: ["/ws/a.c"] });
+    expect(result.content[0]!.text).toBe("Synced 1 file(s).");
+  });
+
+  it("reopen moves opened files into the requested changelist", async () => {
+    const runner = seed();
+    await runner.run(["edit", "/ws/a.c"]);
+    const result = await reopen(makeCtx(runner), {
+      paths: ["/ws/a.c"],
+      changelist: "903",
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "edit",
+      change: "903",
+    });
+    expect(result.content[0]!.text).toContain("Reopened in changelist 903");
+  });
+
+  it("where returns depot, client, and local mappings", async () => {
+    const result = await where(makeCtx(seed()), { path: "/ws/a.c" });
+    expect(result.content[0]!.text).toContain("depotFile: //depot/a.c");
+    expect(result.content[0]!.text).toContain("clientFile: /ws/a.c");
+    expect(result.content[0]!.text).toContain("path: /ws/a.c");
   });
 
   it("changelistCreate prefixes the description and returns a number", async () => {

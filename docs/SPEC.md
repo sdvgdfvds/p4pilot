@@ -279,7 +279,8 @@ export function ensureOpenForEditMany(
 
 An in-memory fake depot implementing `P4Runner`. Seeded with a `FakeDepot`
 description; interprets a subset of `p4` subcommands (`fstat`, `opened`, `edit`,
-`add`, `revert`, `where`, `changes`, `describe`, `change -i`, `info`) and emits
+`add`, `delete`, `revert`, `reopen`, `sync`, `where`, `changes`, `describe`,
+`change -i`, `info`) and emits
 **real -ztag-formatted stdout** so it exercises the same parser as production.
 
 ```ts
@@ -355,7 +356,11 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 | `p4_smart_edit`        | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
 | `p4_edit`              | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
 | `p4_add`               | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
+| `p4_delete`            | `{ paths: string[], changelist?: string }` | `client.deleteFiles`                                                              |
 | `p4_revert`            | `{ paths: string[] }`                      | `client.revert`                                                                   |
+| `p4_sync`              | `{ paths?: string[] }`                     | `client.sync`                                                                     |
+| `p4_reopen`            | `{ paths: string[], changelist: string }`  | `client.reopen`                                                                   |
+| `p4_where`             | `{ path: string }`                         | `client.where`                                                                    |
 | `p4_changelist_create` | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
 | `p4_changelist_list`   | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
 | `p4_describe`          | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
