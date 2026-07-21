@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
   DEFAULT_ASSET_GUARD_CONFIG,
@@ -151,18 +151,17 @@ describe("localhost host service", () => {
 
 describe("host CLI", () => {
   it("parses loopback host options and rejects non-loopback binding", () => {
+    const cwd = resolve("host-cli-test");
     expect(
       parseHostArgs(
         ["--host", "localhost", "--port", "4815", "--web-root", "web-dist"],
-        "D:/repo",
+        cwd,
       ),
     ).toEqual({
       host: "localhost",
       port: 4815,
-      webRoot: "D:\\repo\\web-dist",
+      webRoot: resolve(cwd, "web-dist"),
     });
-    expect(() => parseHostArgs(["--host", "0.0.0.0"], "D:/repo")).toThrow(
-      "loopback",
-    );
+    expect(() => parseHostArgs(["--host", "0.0.0.0"], cwd)).toThrow("loopback");
   });
 });
