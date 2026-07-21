@@ -6,7 +6,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { operationKey, useDemo } from "../demo/useDemo.js";
-import type { AssetInfoData } from "../demo/store.js";
+import type { AssetInfoData } from "../backend/types.js";
 import { AssetInfoCard } from "./AssetInfoCard.js";
 import { ChangelistList } from "./ChangelistList.js";
 import { FileRow } from "./FileRow.js";
@@ -21,6 +21,7 @@ export function Dashboard() {
     createChangelist,
     revert,
     inspectAsset,
+    connection,
   } = useDemo();
   const [asset, setAsset] = useState<AssetInfoData | null>(null);
   const inspection = useRef(0);
@@ -49,11 +50,14 @@ export function Dashboard() {
       <div className="section-heading">
         <div>
           <h2 id="workspace-heading">Workspace</h2>
-          <p>p4pilot-demo · //depot/game/...</p>
+          <p>
+            {connection?.workspace ?? "Disconnected"}
+            {connection?.root ? ` · ${connection.root}` : ""}
+          </p>
         </div>
         <div className="workspace-metrics" aria-label="Workspace summary">
           <span>
-            <FileStack size={15} /> <strong>{files.length}</strong> tracked
+            <FileStack size={15} /> <strong>{files.length}</strong> visible
           </span>
           <span>
             <LockKeyhole size={15} /> <strong>{opened}</strong> opened

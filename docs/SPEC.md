@@ -15,8 +15,8 @@ code, and review changelists like pull requests.
 
 ## 2. Product boundaries
 
-- The standalone Phase 2 browser demo is shipped. Embedding it in UE, Maya, or a
-  Perforce desktop client remains future work.
+- The browser UI supports both an offline demo backend and the localhost
+  `p4pilot-host` backend. P4V, Unreal Editor, and Maya load this same build.
 - No `p4 submit` automation. p4pilot prepares changelists; a human reviews and
   submits them. No MCP tool may bypass that approval boundary.
 - No embeddings/vector index. Search is text/grep-based (matches how CLI agents
@@ -419,6 +419,8 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 ### 5.1 Startup
 
 - `p4pilot-mcp [--mock] [--cwd <dir>]`.
+- `p4pilot-host [--mock] [--host <loopback>] [--port <n>] [--web-root <dir>]`
+  serves the shared UI and JSON API. It rejects non-loopback bind addresses.
 - `--mock` (or `P4PILOT_MOCK=1`) → construct core with a `MockP4Runner` seeded
   by the bundled `createMockDepot()` module so the server is demoable with zero
   Perforce setup. Each server receives independent mutable state.
@@ -476,30 +478,67 @@ The MCP surface intentionally stops at pending and shelved changelists. It may
 create, populate, describe, and review a changelist, but it does not expose
 `p4 submit`. Submission remains a deliberate human action after review.
 
+### 5.7 Local host service
+
+`p4pilot-host` exposes a loopback-only JSON API and serves `packages/web/dist`
+from the same origin. Routes are limited to the UI workflows:
+
+- `GET /api/health`
+- `GET /api/workspace` — connection, opened files, pending changelists
+- `GET /api/asset-info?path=...`
+- `GET /api/review?change=...`
+- `POST /api/smart-edit`, `/api/revert`, `/api/changelists`
+
+Responses use typed JSON errors. There is no submit route. Core behavior remains
+behind `P4Client`; the HTTP layer does not duplicate Perforce commands.
+
 ## 6. Package: `@p4pilot/web`
 
-A private React/Vite static application deployed to GitHub Pages. It imports the
-browser-safe `@p4pilot/core/browser` entry and runs a real `P4Client` against a
-fresh in-memory `MockP4Runner`; it has no backend and never contacts Perforce.
+A private React/Vite application deployed to GitHub Pages and served locally by
+`p4pilot-host`. A `P4PilotBackend` interface selects either the in-browser
+`DemoStore` or `HttpBackend` without changing views or components.
+
+```ts
+export interface P4PilotBackend {
+  getWorkspace(): Promise<{
+    connection: {
+      mode: "mock" | "live";
+      workspace: string;
+      user?: string;
+      root?: string;
+    };
+    files: FileView[];
+    changelists: ChangelistSummary[];
+  }>;
+  smartEdit(clientFile: string, changelist?: string): Promise<unknown>;
+  createChangelist(description: string): Promise<string>;
+  revert(clientFile: string): Promise<unknown>;
+  assetInfo(path: string): Promise<AssetInfoData>;
+  review(change: string): Promise<ReviewData>;
+}
+```
 
 ### 6.1 Views
 
-- **Workspace dashboard:** lists fake depot files, asset classifications, open
+- **Workspace dashboard:** lists visible/opened files, asset classifications,
   status, smart checkout, revert, asset metadata, and pending changelists.
 - **Changelist review:** selects a pending changelist and renders its files plus
   a seeded unified diff.
 
 ### 6.2 Async behavior
 
-`DemoProvider` owns the mutable store and refreshes view state after mutations.
+`DemoProvider` owns the injected backend and refreshes view state after mutations.
 Every UI operation has a stable operation key, ignores duplicate in-flight
 requests, exposes a loading state, and maps failures to a dismissible error
-banner. Asset and review responses are guarded against stale updates.
+banner. The header also shows mock/live/disconnected connection state. Asset and
+review responses are guarded against stale updates.
 
 ### 6.3 Deployment
 
 The Vite base is `/p4pilot/`. `.github/workflows/pages.yml` builds
 `packages/web/dist` and deploys it to GitHub Pages after pushes to `main`.
+With no query parameter the static demo uses `DemoStore`; `?backend=local`
+connects `HttpBackend` to the page's origin.
 
 ### 6.4 Directory layout
 
@@ -511,12 +550,14 @@ packages/core/
   test/{ztag,mock-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,config}.test.ts
 packages/mcp-server/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,server,tools,core-factory,mock-depot,asset-dependency-provider}.ts
-  test/{tools,integration,core-factory,asset-dependency-provider}.test.ts
+  src/{index,http,server,host-service,host-cli,tools,core-factory,mock-depot,asset-dependency-provider}.ts
+  test/{tools,integration,host-service,core-factory,asset-dependency-provider}.test.ts
 packages/web/
   package.json  vite.config.ts  index.html
   src/{App,diff,styles}.ts(x)
-  src/components/*.tsx  src/demo/*.ts(x)
+  src/components/*.tsx  src/demo/*.ts(x)  src/backend/*.ts
+hosts/
+  p4v/  unreal/  maya/
 examples/
   claude-code.md  cursor.mcp.json  codex.config.toml
 ```
@@ -532,3 +573,5 @@ examples/
 5. The browser demo builds without Node polyfills, supports checkout/revert and
    changelist review, reports async failures visibly, and deploys via Pages.
 6. No automated path submits a real changelist; submission remains human-owned.
+7. The localhost host serves the same web build to P4V, Unreal, and Maya, and
+   shared backend tests cover connection, workspace, asset, review, and errors.

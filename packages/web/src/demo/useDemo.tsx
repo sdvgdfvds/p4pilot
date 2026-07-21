@@ -7,13 +7,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { DemoStore } from "./store.js";
+import type {
+  AssetInfoData,
+  BackendConnection,
+  FileView,
+  P4PilotBackend,
+  ReviewData,
+} from "../backend/types.js";
 import type { ChangelistSummary } from "@p4pilot/core/browser";
-import {
-  DemoStore,
-  type AssetInfoData,
-  type FileView,
-  type ReviewData,
-} from "./store.js";
 
 export const operationKey = {
   smartEdit: (path: string) => `smart-edit:${path}`,
@@ -27,6 +29,7 @@ interface DemoContextValue {
   files: FileView[];
   changelists: ChangelistSummary[];
   ready: boolean;
+  connection: BackendConnection | null;
   error: string | null;
   pending: readonly string[];
   clearError: () => void;
@@ -48,19 +51,22 @@ export function DemoProvider({
   store: providedStore,
 }: {
   children: ReactNode;
-  store?: DemoStore;
+  store?: P4PilotBackend;
 }) {
   const [store] = useState(() => providedStore ?? new DemoStore());
   const [files, setFiles] = useState<FileView[]>([]);
   const [changelists, setChangelists] = useState<ChangelistSummary[]>([]);
   const [ready, setReady] = useState(false);
+  const [connection, setConnection] = useState<BackendConnection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<readonly string[]>([]);
   const pendingRef = useRef(new Set<string>());
 
   const refresh = useCallback(async () => {
-    setFiles(await store.listFiles());
-    setChangelists(await store.listChangelists());
+    const snapshot = await store.getWorkspace();
+    setFiles(snapshot.files);
+    setChangelists(snapshot.changelists);
+    setConnection(snapshot.connection);
   }, [store]);
 
   const runOperation = useCallback(
@@ -89,7 +95,10 @@ export function DemoProvider({
     let active = true;
     void refresh()
       .catch((refreshError: unknown) => {
-        if (active) setError(errorMessage(refreshError));
+        if (active) {
+          setConnection(null);
+          setError(errorMessage(refreshError));
+        }
       })
       .finally(() => {
         if (active) setReady(true);
@@ -156,6 +165,7 @@ export function DemoProvider({
     files,
     changelists,
     ready,
+    connection,
     error,
     pending,
     clearError: () => setError(null),

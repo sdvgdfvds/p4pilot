@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-107%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-113%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -19,10 +19,10 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 ---
 
-> **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 107 tests, green in CI, and runnable today with zero Perforce via
-> `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
-> now live.
+> **✅ Status: MCP, browser UI, and host integrations ready.** Core + MCP server
+> are fully tested — 113 tests, green in CI, and runnable today with zero
+> Perforce via `--mock`. The same UI can run as the live local workspace in P4V,
+> Unreal Editor, and Maya.
 >
 > **▶ Live demo (no install):** https://sdvgdfvds.github.io/p4pilot/
 
@@ -168,6 +168,18 @@ node packages/mcp-server/dist/index.js --mock   # or wire the built binary into 
 Ready-to-copy config snippets for each client live in
 [`examples/`](./examples).
 
+### Run the local host UI
+
+After `npm run build`, start the loopback-only service:
+
+```bash
+node packages/mcp-server/dist/http.js --host 127.0.0.1 --port 4715 --web-root packages/web/dist
+```
+
+Open `http://127.0.0.1:4715/p4pilot/?backend=local`, or embed that URL using the
+provided [P4V, Unreal Editor, or Maya host](./docs/HOST_INTEGRATION.md). The page
+uses the active Perforce environment and reports explicit disconnected states.
+
 ## Architecture
 
 ```
@@ -202,7 +214,7 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] Polish: examples, CI, tool reference & architecture docs
 - [x] **Phase 2:** React demo panel (changelist dashboard + review UI), live in-browser on GitHub Pages
 - [x] Human-owned submit boundary: p4pilot prepares and reviews; a person submits
-- [ ] Embed the review panel in PC client / **UE / Maya** WebViews
+- [x] Shared live panel in P4V HTML Tab, Unreal `SWebBrowser`, and Maya Qt WebEngine
 - [x] Shelved-changelist review workflow (`p4_shelved_review`)
 - [x] Asset dependency surfacing via injectable Unreal Asset Registry provider
 

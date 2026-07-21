@@ -1,4 +1,4 @@
-import type { AssetInfoData } from "../demo/store.js";
+import type { AssetInfoData } from "../backend/types.js";
 import { ShieldAlert, X } from "lucide-react";
 
 export function AssetInfoCard({

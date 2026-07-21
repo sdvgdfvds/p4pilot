@@ -7,10 +7,10 @@ Perforce server anywhere.**
 - **`@p4pilot/core`** — the Perforce brain. Runner seam, `-ztag` parser, typed
   `P4Client`, asset guard, auto-checkout, asset dependency graph traversal,
   changelist/config helpers. Zero MCP knowledge.
-- **`@p4pilot/mcp-server`** — a thin MCP adapter (binary `p4pilot-mcp`) that
-  exposes core as zod-typed MCP tools over stdio. Zero direct `p4` knowledge.
-- **`@p4pilot/web`** — a private React/Vite demo that imports the browser-safe
-  core entry and runs it against an in-memory mock depot. No backend.
+- **`@p4pilot/mcp-server`** — thin stdio MCP and loopback HTTP adapters (binaries
+  `p4pilot-mcp` and `p4pilot-host`). Zero direct `p4` knowledge.
+- **`@p4pilot/web`** — one React/Vite workspace UI with injectable mock and HTTP
+  backends.
 
 ## Layers
 
@@ -79,14 +79,25 @@ instead calls typed core method `describeShelved`, which runs
 multiple ztag records while preserving each raw unified diff segment. No sync or
 unshelve command is involved, so reviewing a shelf cannot alter current files.
 
-## Browser demo
+## Shared web backend
 
-The web package imports `@p4pilot/core/browser`, which omits `execa`, `node:fs`,
-and process configuration. `DemoProvider` owns a `DemoStore`, exposes operation
-keys for loading and duplicate suppression, refreshes state after mutations, and
-turns failures into a dismissible banner. Workspace and review views therefore
-exercise the same client, parser, asset guard, and checkout workflow as the MCP
-server while remaining a static site.
+`P4PilotBackend` is the UI boundary. `DemoStore` imports
+`@p4pilot/core/browser` and keeps the GitHub Pages demo fully offline.
+`HttpBackend` calls the same-origin `p4pilot-host` API for a real workspace.
+`DemoProvider` exposes operation keys for duplicate suppression, refreshes after
+mutations, and turns failures into a visible disconnected state.
+
+`p4pilot-host` binds only to loopback, serves the Vite build, and translates
+workspace, asset, review, checkout, revert, and changelist requests into typed
+core calls. It intentionally has no submit endpoint.
+
+## Host adapters
+
+P4V uses its official HTML Tab support, Unreal registers a nomad tab containing
+`SWebBrowser`, and Maya creates a dockable `QWebEngineView`. Each points at
+`http://127.0.0.1:4715/p4pilot/?backend=local`; none contains copied UI or
+Perforce logic. Installation details are in
+[`HOST_INTEGRATION.md`](./HOST_INTEGRATION.md).
 
 ## `-ztag` parsing
 

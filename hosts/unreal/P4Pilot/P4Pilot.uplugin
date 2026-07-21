@@ -1,0 +1,24 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "p4pilot",
+  "Description": "Dock the shared p4pilot Perforce workspace in Unreal Editor.",
+  "Category": "Source Control",
+  "CreatedBy": "p4pilot contributors",
+  "CanContainContent": false,
+  "EnabledByDefault": false,
+  "Modules": [
+    {
+      "Name": "P4Pilot",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "WebBrowserWidget",
+      "Enabled": true
+    }
+  ]
+}
