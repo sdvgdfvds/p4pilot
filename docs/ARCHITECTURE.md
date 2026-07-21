@@ -5,8 +5,8 @@ logic behind a single swappable seam, so the whole system is testable with no
 Perforce server anywhere.**
 
 - **`@p4pilot/core`** — the Perforce brain. Runner seam, `-ztag` parser, typed
-  `P4Client`, asset guard, auto-checkout, changelist/config helpers. Zero MCP
-  knowledge.
+  `P4Client`, asset guard, auto-checkout, asset dependency graph traversal,
+  changelist/config helpers. Zero MCP knowledge.
 - **`@p4pilot/mcp-server`** — a thin MCP adapter (binary `p4pilot-mcp`) that
   exposes core as zod-typed MCP tools over stdio. Zero direct `p4` knowledge.
 - **`@p4pilot/web`** — a private React/Vite demo that imports the browser-safe
@@ -109,6 +109,31 @@ ordered `Map` records; `groupIndexed` collapses indexed fields into arrays. See
 
 `shouldRead` is `true` only for `text`. `p4_asset_info` and `p4_search` both rely
 on this so agents never ingest binary bytes.
+
+## Unreal asset dependencies
+
+Dependency data follows a separate injectable seam because it belongs to Unreal
+Asset Registry, not Perforce:
+
+```text
+UE Editor / commandlet
+  IAssetRegistry::GetDependencies + GetReferencers
+             | versioned JSON export
+             v
+JsonFileAssetDependencyProvider
+             | AssetDependencyProvider
+             v
+resolveAssetDependencies (BFS, depth/cycle/missing checks)
+             |
+             v
+p4_asset_dependencies
+```
+
+The production provider validates the whole export before returning records.
+The pure core traversal and static test provider remain browser-safe and fully
+offline. If the JSON source is absent or invalid, the provider throws
+`ASSET_DEPENDENCIES_UNAVAILABLE`; neither layer opens `.uasset` files or guesses
+relationships. See [`UNREAL_ASSET_DEPENDENCIES.md`](./UNREAL_ASSET_DEPENDENCIES.md).
 
 ## Auto-checkout
 

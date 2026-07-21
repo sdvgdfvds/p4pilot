@@ -4,7 +4,7 @@
 > or shelved changelists; a human submits them through the normal Perforce
 > workflow.
 
-`@p4pilot/mcp-server` exposes **17 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **18 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
 (see [Error codes](#error-codes)).
@@ -310,6 +310,38 @@ reason: text extension .cpp
 
 ---
 
+## `p4_asset_dependencies`
+
+Query Unreal package relationships from a configured Asset Registry export.
+The tool does not read `.uasset` bytes. Paths are the package names present in
+the export, normally `/Game/...`.
+
+**Input:**
+`{ path: string, direction?: "dependencies" | "referencers" | "both", depth?: number (1..10) }`
+
+Defaults are `direction: "both"` and `depth: 1`.
+
+```text
+$ p4_asset_dependencies { "path": "/Game/Hero", "direction": "both", "depth": 2 }
+Asset dependencies for /Game/Hero
+provider: unreal-asset-registry:D:\exports\asset-registry.json
+direction: both
+depth: 2
+direct dependency: /Game/HeroMesh
+direct dependency: /Game/HeroAnimation
+direct referencer: /Game/Maps/Arena
+dependency[2]: /Game/Materials/Hero
+risk: Asset Registry data may omit references created only at runtime.
+```
+
+Missing registry records appear as `missing:` lines and matching `risk:` lines.
+If no UE export is configured, the call fails with
+`ASSET_DEPENDENCIES_UNAVAILABLE` rather than returning invented results. Setup
+and the versioned JSON contract are in
+[`UNREAL_ASSET_DEPENDENCIES.md`](./UNREAL_ASSET_DEPENDENCIES.md).
+
+---
+
 ## `p4_filelog`
 
 Show a file's revision history.
@@ -346,14 +378,16 @@ text files are searched.
 
 Tool errors are formatted as `p4pilot error [CODE]: message`. Codes:
 
-| Code                 | Meaning                                                |
-| -------------------- | ------------------------------------------------------ |
-| `P4_NOT_FOUND`       | the `p4` binary is not installed / not on `PATH`       |
-| `P4_COMMAND_FAILED`  | `p4` returned a non-zero exit (message carries stderr) |
-| `NOT_CONNECTED`      | no `P4PORT` / not logged in                            |
-| `FILE_NOT_IN_CLIENT` | path is not mapped into the workspace                  |
-| `NO_SHELVED_FILES`   | changelist exists but contains no shelved files        |
-| `INVALID_INPUT`      | the arguments failed validation                        |
+| Code                             | Meaning                                                |
+| -------------------------------- | ------------------------------------------------------ |
+| `P4_NOT_FOUND`                   | the `p4` binary is not installed / not on `PATH`       |
+| `P4_COMMAND_FAILED`              | `p4` returned a non-zero exit (message carries stderr) |
+| `NOT_CONNECTED`                  | no `P4PORT` / not logged in                            |
+| `FILE_NOT_IN_CLIENT`             | path is not mapped into the workspace                  |
+| `NO_SHELVED_FILES`               | changelist exists but contains no shelved files        |
+| `ASSET_DEPENDENCIES_UNAVAILABLE` | UE Asset Registry export is absent or invalid          |
+| `ASSET_NOT_FOUND`                | requested Unreal package is absent from the export     |
+| `INVALID_INPUT`                  | the arguments failed validation                        |
 
 Example:
 

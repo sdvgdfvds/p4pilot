@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-97%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-107%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 97 tests, green in CI, and runnable today with zero Perforce via
+> tested — 107 tests, green in CI, and runnable today with zero Perforce via
 > `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
 > now live.
 >
@@ -55,7 +55,7 @@ edit	//depot/game/src/main.cpp (change 813)
 edit	//depot/game/Content/Hero.uasset (change 813)
 ```
 
-Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 17
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 18
 tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists
@@ -87,6 +87,7 @@ intercepted file writes to enforce `p4 edit`.** Until you build that bridge,
 | 🔓 **Smart auto-checkout**       | Before the agent edits a file, p4pilot ensures it's `p4 edit`-ed (or `p4 add`-ed if new) into the right changelist. The exact hook studios hand-roll — built in.                              |
 | 🗂️ **Changelist-aware planning** | The agent groups its work into pending changelists with generated descriptions, instead of dumping everything into `default`.                                                                 |
 | 🛡️ **Binary-asset guard**        | `.uasset`/`.fbx`/`.psd` and other large binaries are detected and returned as **metadata** (type, size, last change, who touched it) instead of choking the context window with binary bytes. |
+| 🔗 **UE asset dependencies**     | Reads direct/transitive dependencies and referencers from an Unreal Asset Registry export, including missing-record and traversal-risk warnings.                                              |
 | 🔎 **Depot code search**         | Fast text search over the synced workspace that automatically skips binary assets.                                                                                                            |
 | 👀 **Changelist code review**    | Turn a pending or shelved changelist into a structured, review-ready diff — "PR review" for Perforce.                                                                                         |
 | 🧾 **History & blame**           | `filelog`/`describe`-backed history so the agent can answer "who changed this and why".                                                                                                       |
@@ -203,7 +204,7 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] Human-owned submit boundary: p4pilot prepares and reviews; a person submits
 - [ ] Embed the review panel in PC client / **UE / Maya** WebViews
 - [x] Shelved-changelist review workflow (`p4_shelved_review`)
-- [ ] Asset dependency surfacing (UE `.uasset` references)
+- [x] Asset dependency surfacing via injectable Unreal Asset Registry provider
 
 ## Contributing
 

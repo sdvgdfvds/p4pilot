@@ -4,6 +4,9 @@ import {
   classifyAsset,
   ensureOpenForEditMany,
   P4PilotError,
+  resolveAssetDependencies,
+  type AssetDependencyDirection,
+  type AssetDependencyProvider,
   type P4Client,
   type P4PilotConfig,
 } from "@p4pilot/core";
@@ -24,6 +27,7 @@ export interface ToolContext {
   client: P4Client;
   config: P4PilotConfig;
   search: Searcher;
+  assetDependencies: AssetDependencyProvider;
 }
 
 export interface ToolResult {
@@ -283,6 +287,41 @@ export async function assetInfo(
   return ok(lines.join("\n") + note);
 }
 
+export async function assetDependencies(
+  ctx: ToolContext,
+  args: {
+    path: string;
+    direction?: AssetDependencyDirection;
+    depth?: number;
+  },
+): Promise<ToolResult> {
+  const report = await resolveAssetDependencies(
+    ctx.assetDependencies,
+    args.path,
+    {
+      direction: args.direction,
+      depth: args.depth,
+    },
+  );
+  const lines = [
+    `Asset dependencies for ${report.path}`,
+    `provider: ${report.provider}`,
+    `direction: ${report.direction}`,
+    `depth: ${report.depth}`,
+    ...report.directDependencies.map((path) => `direct dependency: ${path}`),
+    ...report.directReferencers.map((path) => `direct referencer: ${path}`),
+    ...report.dependencies
+      .filter((link) => link.depth > 1)
+      .map((link) => `dependency[${link.depth}]: ${link.path}`),
+    ...report.referencers
+      .filter((link) => link.depth > 1)
+      .map((link) => `referencer[${link.depth}]: ${link.path}`),
+    ...report.missingAssets.map((path) => `missing: ${path}`),
+    ...report.risks.map((risk) => `risk: ${risk}`),
+  ];
+  return ok(lines.join("\n"));
+}
+
 export async function filelog(
   ctx: ToolContext,
   args: { path: string; max?: number },
@@ -465,6 +504,20 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: { path: z.string() },
     },
     (args) => guard(() => assetInfo(ctx, args)),
+  );
+  server.registerTool(
+    "p4_asset_dependencies",
+    {
+      title: "Unreal asset dependencies",
+      description:
+        "Read dependencies and referencers from a configured Unreal Asset Registry export.",
+      inputSchema: {
+        path: z.string().min(1),
+        direction: z.enum(["dependencies", "referencers", "both"]).optional(),
+        depth: z.number().int().min(1).max(10).optional(),
+      },
+    },
+    (args) => guard(() => assetDependencies(ctx, args)),
   );
   server.registerTool(
     "p4_filelog",

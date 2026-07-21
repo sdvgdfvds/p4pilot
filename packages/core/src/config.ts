@@ -9,13 +9,19 @@ export interface P4PilotConfig {
   mock: boolean;
   assetGuard: AssetGuardConfig;
   defaultChangelistPrefix: string;
+  assetDependencies: AssetDependencyConfig;
   env: { P4PORT?: string; P4CLIENT?: string; P4USER?: string };
+}
+
+export interface AssetDependencyConfig {
+  registryJsonPath?: string;
 }
 
 interface FileConfig {
   p4Path?: string;
   defaultChangelistPrefix?: string;
   assetGuard?: Partial<AssetGuardConfig>;
+  assetDependencies?: AssetDependencyConfig;
 }
 
 function findConfigFile(cwd: string): string | undefined {
@@ -57,6 +63,11 @@ export function loadConfig(opts?: {
     mock: mockFlag === "1" || mockFlag === "true",
     assetGuard: { ...DEFAULT_ASSET_GUARD_CONFIG, ...fileConfig.assetGuard },
     defaultChangelistPrefix: fileConfig.defaultChangelistPrefix ?? "[p4pilot] ",
+    assetDependencies: {
+      registryJsonPath:
+        env.P4PILOT_UE_ASSET_REGISTRY_JSON ??
+        fileConfig.assetDependencies?.registryJsonPath,
+    },
     env: {
       P4PORT: env.P4PORT,
       P4CLIENT: env.P4CLIENT,

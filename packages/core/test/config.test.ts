@@ -55,6 +55,25 @@ describe("loadConfig", () => {
       "[hoyo] ",
     );
   });
+
+  it("configures an Asset Registry JSON export from file or environment", () => {
+    const dir = mkdir();
+    writeFileSync(
+      join(dir, ".p4pilot.json"),
+      JSON.stringify({
+        assetDependencies: { registryJsonPath: "from-file.json" },
+      }),
+    );
+    expect(
+      loadConfig({ cwd: dir, env: {} }).assetDependencies.registryJsonPath,
+    ).toBe("from-file.json");
+    expect(
+      loadConfig({
+        cwd: dir,
+        env: { P4PILOT_UE_ASSET_REGISTRY_JSON: "from-env.json" },
+      }).assetDependencies.registryJsonPath,
+    ).toBe("from-env.json");
+  });
 });
 
 describe("buildChangelistDescription", () => {

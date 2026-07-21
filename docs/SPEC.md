@@ -154,6 +154,8 @@ export type P4PilotErrorCode =
   | "NOT_CONNECTED"      // no P4PORT/login
   | "FILE_NOT_IN_CLIENT" // path not mapped to workspace
   | "NO_SHELVED_FILES"   // successful describe response had no shelves
+  | "ASSET_DEPENDENCIES_UNAVAILABLE" // no valid UE Asset Registry provider
+  | "ASSET_NOT_FOUND"     // requested package absent from registry export
   | "INVALID_INPUT";
 ```
 
@@ -349,6 +351,7 @@ export interface P4PilotConfig {
   mock: boolean; // P4PILOT_MOCK=1
   assetGuard: AssetGuardConfig;
   defaultChangelistPrefix: string; // default "[p4pilot] "
+  assetDependencies: { registryJsonPath?: string };
   env: { P4PORT?: string; P4CLIENT?: string; P4USER?: string };
 }
 
@@ -363,6 +366,50 @@ export function loadConfig(opts?: {
 
 Barrel export of the public API: runner interface + both runners, `P4Client`,
 asset-guard, auto-checkout, changelist helpers, config, types, `P4PilotError`.
+
+### 4.10 Asset dependencies — `src/asset-dependencies.ts`
+
+Asset relationships come from an injectable provider. Core never parses
+`.uasset` bytes and never assumes that a depot path maps to an Unreal package.
+
+```ts
+export type AssetDependencyDirection = "dependencies" | "referencers" | "both";
+
+export interface AssetDependencyRecord {
+  path: string; // Unreal package name, e.g. /Game/Characters/Hero
+  dependencies: string[];
+  referencers: string[];
+}
+
+export interface AssetDependencyProvider {
+  readonly name: string;
+  getAsset(path: string): Promise<AssetDependencyRecord | undefined>;
+}
+
+export interface AssetDependencyReport {
+  path: string;
+  provider: string;
+  direction: AssetDependencyDirection;
+  depth: number;
+  directDependencies: string[];
+  directReferencers: string[];
+  dependencies: Array<{ path: string; depth: number }>;
+  referencers: Array<{ path: string; depth: number }>;
+  missingAssets: string[];
+  risks: string[];
+}
+
+export function resolveAssetDependencies(
+  provider: AssetDependencyProvider,
+  path: string,
+  opts?: { direction?: AssetDependencyDirection; depth?: number },
+): Promise<AssetDependencyReport>;
+```
+
+Traversal is breadth-first, deduplicated, limited to depth 1–10, and reports
+cycles, missing records, depth cutoffs, and the Asset Registry's inability to
+observe references created only at runtime. `StaticAssetDependencyProvider`
+supports deterministic offline fixtures.
 
 ## 5. Package: `@p4pilot/mcp-server`
 
@@ -379,25 +426,26 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 
 ### 5.2 Tools (each has a zod input schema; each returns structured text content)
 
-| Tool                   | Input                                      | Behavior                                                                          |
-| ---------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `p4_status`            | `{}`                                       | opened files + count summary                                                      |
-| `p4_smart_edit`        | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
-| `p4_edit`              | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
-| `p4_add`               | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
-| `p4_delete`            | `{ paths: string[], changelist?: string }` | `client.deleteFiles`                                                              |
-| `p4_revert`            | `{ paths: string[] }`                      | `client.revert`                                                                   |
-| `p4_sync`              | `{ paths?: string[] }`                     | `client.sync`                                                                     |
-| `p4_reopen`            | `{ paths: string[], changelist: string }`  | `client.reopen`                                                                   |
-| `p4_where`             | `{ path: string }`                         | `client.where`                                                                    |
-| `p4_changelist_create` | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
-| `p4_changelist_list`   | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
-| `p4_describe`          | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
-| `p4_review`            | `{ change: string }`                       | pending workspace review via `describe` with `diff:true`                          |
-| `p4_shelved_review`    | `{ change: string }`                       | server-side shelved review via `client.describeShelved`; never changes workspace  |
-| `p4_asset_info`        | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
-| `p4_search`            | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
-| `p4_filelog`           | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
+| Tool                    | Input                                      | Behavior                                                                          |
+| ----------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `p4_status`             | `{}`                                       | opened files + count summary                                                      |
+| `p4_smart_edit`         | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
+| `p4_edit`               | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
+| `p4_add`                | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
+| `p4_delete`             | `{ paths: string[], changelist?: string }` | `client.deleteFiles`                                                              |
+| `p4_revert`             | `{ paths: string[] }`                      | `client.revert`                                                                   |
+| `p4_sync`               | `{ paths?: string[] }`                     | `client.sync`                                                                     |
+| `p4_reopen`             | `{ paths: string[], changelist: string }`  | `client.reopen`                                                                   |
+| `p4_where`              | `{ path: string }`                         | `client.where`                                                                    |
+| `p4_changelist_create`  | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
+| `p4_changelist_list`    | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
+| `p4_describe`           | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
+| `p4_review`             | `{ change: string }`                       | pending workspace review via `describe` with `diff:true`                          |
+| `p4_shelved_review`     | `{ change: string }`                       | server-side shelved review via `client.describeShelved`; never changes workspace  |
+| `p4_asset_info`         | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
+| `p4_asset_dependencies` | `{ path, direction?, depth? }`             | query injected UE Asset Registry provider; return links, missing assets, risks    |
+| `p4_search`             | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
+| `p4_filelog`            | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
 
 ### 5.3 Errors
 
@@ -413,7 +461,16 @@ Tool handlers catch `P4PilotError` and return an MCP tool error with the
   `InMemoryTransport`), `listTools`, `callTool("p4_smart_edit", …)`, assert the
   fake depot state changed (file now opened).
 
-### 5.5 Human submit boundary
+### 5.5 Unreal Asset Registry provider
+
+The Node server loads a zod-validated, versioned JSON export when
+`P4PILOT_UE_ASSET_REGISTRY_JSON` or
+`.p4pilot.json#assetDependencies.registryJsonPath` is set. In `--mock` mode it
+uses a bundled static graph. Without either source, the tool returns
+`ASSET_DEPENDENCIES_UNAVAILABLE`; it never fabricates an empty graph. See
+[`UNREAL_ASSET_DEPENDENCIES.md`](./UNREAL_ASSET_DEPENDENCIES.md).
+
+### 5.6 Human submit boundary
 
 The MCP surface intentionally stops at pending and shelved changelists. It may
 create, populate, describe, and review a changelist, but it does not expose
@@ -449,13 +506,13 @@ The Vite base is `/p4pilot/`. `.github/workflows/pages.yml` builds
 ```
 packages/core/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,types,ztag,p4-runner,p4-client,asset-guard,auto-checkout,changelist,config}.ts
+  src/{index,types,ztag,p4-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,changelist,config}.ts
   src/testing/mock-runner.ts
-  test/{ztag,mock-runner,p4-client,asset-guard,auto-checkout,config}.test.ts
+  test/{ztag,mock-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,config}.test.ts
 packages/mcp-server/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,server,tools,core-factory,mock-depot}.ts
-  test/{tools,integration,core-factory}.test.ts
+  src/{index,server,tools,core-factory,mock-depot,asset-dependency-provider}.ts
+  test/{tools,integration,core-factory,asset-dependency-provider}.test.ts
 packages/web/
   package.json  vite.config.ts  index.html
   src/{App,diff,styles}.ts(x)

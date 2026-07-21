@@ -1,4 +1,5 @@
 import {
+  StaticAssetDependencyProvider,
   DEFAULT_ASSET_GUARD_CONFIG,
   P4Client,
   type P4PilotConfig,
@@ -8,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assetInfo,
+  assetDependencies,
   add,
   changelistCreate,
   changelistList,
@@ -32,6 +34,7 @@ const config: P4PilotConfig = {
   p4Path: "p4",
   mock: true,
   assetGuard: DEFAULT_ASSET_GUARD_CONFIG,
+  assetDependencies: {},
   defaultChangelistPrefix: "[p4pilot] ",
   env: {},
 };
@@ -88,8 +91,14 @@ const seed = () =>
 function makeCtx(
   runner: MockP4Runner,
   searcher: Searcher = async () => [],
+  dependencyProvider = new StaticAssetDependencyProvider("empty", []),
 ): ToolContext {
-  return { client: new P4Client(runner), config, search: searcher };
+  return {
+    client: new P4Client(runner),
+    config,
+    search: searcher,
+    assetDependencies: dependencyProvider,
+  };
 }
 
 describe("mcp tool handlers", () => {
@@ -231,6 +240,26 @@ describe("mcp tool handlers", () => {
     });
     expect(result.content[0]!.text).toContain("shouldRead: false");
     expect(result.content[0]!.text).toContain("content withheld");
+  });
+
+  it("assetDependencies returns registry relationships and risks", async () => {
+    const dependencies = new StaticAssetDependencyProvider("ue-fixture", [
+      {
+        path: "/Game/Hero",
+        dependencies: ["/Game/Mesh", "/Game/Missing"],
+        referencers: ["/Game/Level"],
+      },
+      { path: "/Game/Mesh", dependencies: [], referencers: ["/Game/Hero"] },
+      { path: "/Game/Level", dependencies: ["/Game/Hero"], referencers: [] },
+    ]);
+    const result = await assetDependencies(
+      makeCtx(seed(), async () => [], dependencies),
+      { path: "/Game/Hero", direction: "both", depth: 1 },
+    );
+    expect(result.content[0]!.text).toContain("provider: ue-fixture");
+    expect(result.content[0]!.text).toContain("dependency: /Game/Mesh");
+    expect(result.content[0]!.text).toContain("referencer: /Game/Level");
+    expect(result.content[0]!.text).toContain("missing: /Game/Missing");
   });
 
   it("filelog returns revision history", async () => {

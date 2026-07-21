@@ -3,17 +3,20 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   DEFAULT_ASSET_GUARD_CONFIG,
   P4Client,
+  StaticAssetDependencyProvider,
   type P4PilotConfig,
 } from "@p4pilot/core";
 import { MockP4Runner } from "@p4pilot/core/testing";
 import { describe, expect, it } from "vitest";
 
 import { createServer } from "../src/server.js";
+import { UnavailableAssetDependencyProvider } from "../src/asset-dependency-provider.js";
 
 const config: P4PilotConfig = {
   p4Path: "p4",
   mock: true,
   assetGuard: DEFAULT_ASSET_GUARD_CONFIG,
+  assetDependencies: {},
   defaultChangelistPrefix: "[p4pilot] ",
   env: {},
 };
@@ -51,11 +54,22 @@ const seed = () =>
     ],
   });
 
-async function connectClient(runner: MockP4Runner): Promise<Client> {
+async function connectClient(
+  runner: MockP4Runner,
+  dependencyProvider = new StaticAssetDependencyProvider("integration", [
+    {
+      path: "/Game/Hero",
+      dependencies: ["/Game/Mesh"],
+      referencers: [],
+    },
+    { path: "/Game/Mesh", dependencies: [], referencers: ["/Game/Hero"] },
+  ]),
+): Promise<Client> {
   const server = createServer({
     client: new P4Client(runner),
     config,
     search: async () => [],
+    assetDependencies: dependencyProvider,
   });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -89,11 +103,12 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_review",
         "p4_shelved_review",
         "p4_asset_info",
+        "p4_asset_dependencies",
         "p4_filelog",
         "p4_search",
       ]),
     );
-    expect(tools).toHaveLength(17);
+    expect(tools).toHaveLength(18);
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {
@@ -126,6 +141,41 @@ describe("mcp-server integration (InMemoryTransport)", () => {
       ]),
     );
     expect(runner.state.files).toEqual(before);
+  });
+
+  it("routes asset dependency queries through the injected provider", async () => {
+    const client = await connectClient(seed());
+    const result = await client.callTool({
+      name: "p4_asset_dependencies",
+      arguments: { path: "/Game/Hero", direction: "dependencies", depth: 1 },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("dependency: /Game/Mesh"),
+        }),
+      ]),
+    );
+  });
+
+  it("reports asset dependencies as unavailable when UE export is not configured", async () => {
+    const client = await connectClient(
+      seed(),
+      new UnavailableAssetDependencyProvider(),
+    );
+    const result = await client.callTool({
+      name: "p4_asset_dependencies",
+      arguments: { path: "/Game/Hero" },
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("ASSET_DEPENDENCIES_UNAVAILABLE"),
+        }),
+      ]),
+    );
   });
 
   it("returns a typed tool error when a changelist has no shelves", async () => {
