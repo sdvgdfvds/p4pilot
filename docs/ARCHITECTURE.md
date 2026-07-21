@@ -75,9 +75,10 @@ CI needs no Perforce.
 
 `p4_review` reads pending work from the current workspace. `p4_shelved_review`
 instead calls typed core method `describeShelved`, which runs
-`p4 describe -S -du <change>`. The parser combines indexed file metadata across
-multiple ztag records while preserving each raw unified diff segment. No sync or
-unshelve command is involved, so reviewing a shelf cannot alter current files.
+tagged `p4 describe -S -s <change>` for indexed metadata and untagged
+`p4 describe -S -du <change>` for the native unified diff. The split is required
+because real Perforce suppresses diff text under `-ztag`. No sync or unshelve
+command is involved, so reviewing a shelf cannot alter current files.
 
 ## Shared web backend
 

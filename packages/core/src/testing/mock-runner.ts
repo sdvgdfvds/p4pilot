@@ -149,7 +149,7 @@ export class MockP4Runner implements P4Runner {
       case "changes":
         return this.runChanges(commandArgs);
       case "describe":
-        return this.runDescribe(commandArgs);
+        return this.runDescribe(commandArgs, opts);
       case "diff":
         return success();
       case "change":
@@ -373,12 +373,12 @@ export class MockP4Runner implements P4Runner {
     );
   }
 
-  private runDescribe(args: string[]): P4Result {
+  private runDescribe(args: string[], opts?: P4RunOptions): P4Result {
     const change = [...args]
       .reverse()
       .find((argument) => !argument.startsWith("-"));
     if (args.includes("-S")) {
-      return this.runDescribeShelved(change);
+      return this.runDescribeShelved(change, opts?.tagged !== false);
     }
     const changelist = this.#state.changelists?.find(
       (item) => item.change === change,
@@ -404,12 +404,27 @@ export class MockP4Runner implements P4Runner {
     return success(formatRecords([fields]));
   }
 
-  private runDescribeShelved(change: string | undefined): P4Result {
+  private runDescribeShelved(
+    change: string | undefined,
+    tagged: boolean,
+  ): P4Result {
     const changelist = this.#state.shelvedChangelists?.find(
       (item) => item.change === change,
     );
     if (changelist === undefined) {
       return failure(`Change ${change ?? ""} has no shelved files.`);
+    }
+
+    if (!tagged) {
+      const diffs = changelist.files.flatMap((file) => {
+        if (file.diff === undefined) return [];
+        return [
+          `==== ${file.depotFile}#${file.rev ?? 1} (${file.type ?? "text"}) ====\n\n${file.diff}`,
+        ];
+      });
+      return success(
+        `Change ${changelist.change} by ${changelist.user ?? "unknown"}@${changelist.client ?? "unknown"} *pending*\n\nDifferences ...\n\n${diffs.join("\n\n")}\n`,
+      );
     }
 
     const fields: ZtagField[] = [
@@ -427,18 +442,7 @@ export class MockP4Runner implements P4Runner {
       fields.push([`type${index}`, file.type]);
     }
 
-    const records = [formatRecord(fields)];
-    for (const file of changelist.files) {
-      if (file.diff === undefined) continue;
-      records.push(
-        `${formatRecord([
-          ["depotFile", file.depotFile],
-          ["rev", file.rev],
-          ["type", file.type],
-        ])}\n${file.diff}`,
-      );
-    }
-    return success(`${records.join("\n\n")}\n`);
+    return success(`${formatRecord(fields)}\n`);
   }
 
   private runChange(args: string[], opts?: P4RunOptions): P4Result {

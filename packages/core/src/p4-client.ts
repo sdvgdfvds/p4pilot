@@ -308,7 +308,7 @@ export class P4Client {
   }
 
   async describeShelved(change: string): Promise<ShelvedReviewResult> {
-    const { stdout } = await this.#run(["describe", "-S", "-du", change]);
+    const { stdout } = await this.#run(["describe", "-S", "-s", change]);
     const described = parseDescribeOutput(stdout, change);
     if (described.files.length === 0) {
       throw new P4PilotError(
@@ -316,6 +316,10 @@ export class P4Client {
         "NO_SHELVED_FILES",
       );
     }
+    const diff = await this.#run(["describe", "-S", "-du", change], {
+      tagged: false,
+    });
+    described.diff = extractUnifiedDiff(diff.stdout);
     return { ...described, reviewType: "shelved" };
   }
 

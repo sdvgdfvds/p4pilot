@@ -153,10 +153,23 @@ describe("P4Client", () => {
   });
 
   it("describeShelved() parses multi-record ztag metadata and unified diffs", async () => {
-    const calls: string[][] = [];
+    const calls: Array<{ args: string[]; tagged: boolean | undefined }> = [];
     const runner: P4Runner = {
-      async run(args) {
-        calls.push(args);
+      async run(args, opts) {
+        calls.push({ args, tagged: opts?.tagged });
+        if (opts?.tagged === false) {
+          return ok(
+            "Change 734 by alice@ws-client *pending*\n\n" +
+              "Differences ...\n\n" +
+              "==== //depot/a.c#4 (text) ====\n\n" +
+              "@@ -1 +1 @@\n" +
+              "-old a\n" +
+              "+new a\n\n" +
+              "==== //depot/new.c#1 (text) ====\n\n" +
+              "@@ -0,0 +1 @@\n" +
+              "+new file\n",
+          );
+        }
         return ok(
           "... change 734\n" +
             "... user alice\n" +
@@ -169,27 +182,23 @@ describe("P4Client", () => {
             "... rev0 4\n" +
             "... depotFile1 //depot/new.c\n" +
             "... action1 add\n" +
-            "... rev1 1\n\n" +
-            "... depotFile //depot/a.c\n" +
-            "... type text\n" +
-            "--- //depot/a.c#4\n" +
-            "+++ //depot/a.c@=734\n" +
-            "@@ -1 +1 @@\n" +
-            "-old a\n" +
-            "+new a\n\n" +
-            "... depotFile //depot/new.c\n" +
-            "... type text\n" +
-            "--- /dev/null\n" +
-            "+++ //depot/new.c@=734\n" +
-            "@@ -0,0 +1 @@\n" +
-            "+new file\n",
+            "... rev1 1\n",
         );
       },
     };
 
     const described = await new P4Client(runner).describeShelved("734");
 
-    expect(calls).toEqual([["describe", "-S", "-du", "734"]]);
+    expect(calls).toEqual([
+      {
+        args: ["describe", "-S", "-s", "734"],
+        tagged: undefined,
+      },
+      {
+        args: ["describe", "-S", "-du", "734"],
+        tagged: false,
+      },
+    ]);
     expect(described.reviewType).toBe("shelved");
     expect(described.description).toBe(
       "shelved gameplay changes\nsecond description line",
@@ -198,8 +207,8 @@ describe("P4Client", () => {
       { depotFile: "//depot/a.c", action: "edit", rev: 4 },
       { depotFile: "//depot/new.c", action: "add", rev: 1 },
     ]);
-    expect(described.diff).toContain("--- //depot/a.c#4");
-    expect(described.diff).toContain("+++ //depot/new.c@=734");
+    expect(described.diff).toContain("==== //depot/a.c#4 (text) ====");
+    expect(described.diff).toContain("==== //depot/new.c#1 (text) ====");
     expect(described.diff).toContain("@@ -0,0 +1 @@");
   });
 

@@ -53,18 +53,21 @@ export interface P4RunOptions {
   cwd?: string;
   input?: string; // stdin, e.g. for `p4 change -i`
   env?: Record<string, string>;
+  tagged?: boolean; // defaults to true; false preserves native text output
 }
 
 export interface P4Runner {
-  /** Runs `p4 -ztag <args>` (the -ztag flag is added by the runner). */
+  /** Runs `p4 -ztag <args>` unless opts.tagged is explicitly false. */
   run(args: string[], opts?: P4RunOptions): Promise<P4Result>;
 }
 ```
 
 - **`ExecaP4Runner implements P4Runner`** — spawns the real `p4` binary via
-  `execa`, always injecting `-ztag` as the first global arg for parseable
-  output. Constructor takes `{ p4Path?: string; env?: Record<string,string> }`.
-  Never throws on non-zero exit; returns the `P4Result` so callers decide.
+  `execa`, injecting `-ztag` as the first global arg by default for parseable
+  output. Callers may set `tagged: false` for commands whose native text format
+  is required, such as unified diffs. Constructor takes
+  `{ p4Path?: string; env?: Record<string,string> }`. Never throws on non-zero
+  exit; returns the `P4Result` so callers decide.
 - **`MockP4Runner implements P4Runner`** — see 4.7.
 
 ### 4.2 `ztag` parser — `src/ztag.ts`
@@ -207,11 +210,13 @@ export class P4Client {
 }
 ```
 
-`describeShelved` runs `p4 describe -S -du <change>`. It parses indexed file
-metadata across multiple ztag records and returns every unified diff segment
-without syncing, unshelving, or otherwise changing the workspace. A successful
-response with no shelved files raises `NO_SHELVED_FILES`; a non-zero Perforce
-response remains `P4_COMMAND_FAILED`.
+`describeShelved` first runs tagged `p4 describe -S -s <change>` and parses
+indexed file metadata across multiple ztag records. Real Perforce suppresses
+diff text when `-ztag` is present, so it then runs untagged
+`p4 describe -S -du <change>` and extracts every native unified diff segment.
+Neither call syncs, unshelves, or otherwise changes the workspace. A successful
+metadata response with no shelved files raises `NO_SHELVED_FILES`; a non-zero
+Perforce response remains `P4_COMMAND_FAILED`.
 
 `newChangelist` uses `p4 change -i` with a generated change spec on stdin and
 parses the resulting `Change NNNN created.` message.

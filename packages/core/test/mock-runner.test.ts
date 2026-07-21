@@ -77,10 +77,16 @@ describe("MockP4Runner", () => {
     const result = await seed().run(["sync", "/ws/a.c"]);
     expect(parseZtag(result.stdout)).toHaveLength(1);
   });
-  it("describe -S emits shelved fixture metadata and unified diff", async () => {
-    const result = await seed().run(["describe", "-S", "-du", "44"]);
+  it("describe -S emits tagged metadata separately from native unified diff", async () => {
+    const runner = seed();
+    const result = await runner.run(["describe", "-S", "-s", "44"]);
+    const diff = await runner.run(["describe", "-S", "-du", "44"], {
+      tagged: false,
+    });
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("... depotFile0 //depot/a.c");
-    expect(result.stdout).toContain("+++ //depot/a.c@=44");
+    expect(result.stdout).not.toContain("+++ //depot/a.c@=44");
+    expect(diff.stdout).toContain("==== //depot/a.c#1 (text) ====");
+    expect(diff.stdout).toContain("+++ //depot/a.c@=44");
   });
 });

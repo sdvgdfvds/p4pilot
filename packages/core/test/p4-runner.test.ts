@@ -38,6 +38,21 @@ describe("ExecaP4Runner", () => {
     );
   });
 
+  it("can run commands without -ztag when native diff output is required", async () => {
+    execaMock.mockResolvedValue({ stdout: "diff", stderr: "", exitCode: 0 });
+    const runner = new ExecaP4Runner({ p4Path: "custom-p4" });
+
+    await runner.run(["describe", "-S", "-du", "734"], {
+      tagged: false,
+    });
+
+    expect(execaMock).toHaveBeenCalledWith(
+      "custom-p4",
+      ["describe", "-S", "-du", "734"],
+      expect.objectContaining({ reject: false }),
+    );
+  });
+
   it("returns non-zero exits without throwing", async () => {
     execaMock.mockResolvedValue({
       stdout: "",
