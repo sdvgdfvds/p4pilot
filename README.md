@@ -179,6 +179,8 @@ node packages/mcp-server/dist/http.js --host 127.0.0.1 --port 4715 --web-root pa
 Open `http://127.0.0.1:4715/p4pilot/?backend=local`, or embed that URL using the
 provided [P4V, Unreal Editor, or Maya host](./docs/HOST_INTEGRATION.md). The page
 uses the active Perforce environment and reports explicit disconnected states.
+The supplied Windows P4V demo also includes terminal-free `start-demo.vbs` and
+`reset-demo.vbs` launchers under `hosts/p4v`.
 
 ## Architecture
 

@@ -32,6 +32,9 @@ workflows as MCP. If the process or Perforce connection fails, the header reads
 Use the official P4V HTML Tab integration and startup script in
 [`hosts/p4v`](../hosts/p4v/README.md). A P4V Custom Tool starts the service with
 the active connection environment, then the HTML Tab docks the shared URL.
+For the supplied Windows demo, `start-demo.vbs` and `reset-demo.vbs` provide
+double-click startup and cleanup without a terminal window. Their tested Node
+orchestrator starts only the dedicated local p4d/client and never submits.
 
 ## Unreal Editor
 

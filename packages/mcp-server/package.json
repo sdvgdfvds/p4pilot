@@ -29,7 +29,8 @@
   "type": "module",
   "bin": {
     "p4pilot-mcp": "dist/index.js",
-    "p4pilot-host": "dist/http.js"
+    "p4pilot-host": "dist/http.js",
+    "p4pilot-demo": "dist/demo.js"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
