@@ -419,13 +419,18 @@ supports deterministic offline fixtures.
 ## 5. Package: `@p4pilot/mcp-server`
 
 Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
-(stdio transport). Binary name: **`p4pilot-mcp`**.
+(stdio transport). Binary names: **`p4pilot-mcp`**, **`p4pilot-host`**, and the
+Windows demo controller **`p4pilot-demo`**.
 
 ### 5.1 Startup
 
 - `p4pilot-mcp [--mock] [--cwd <dir>]`.
 - `p4pilot-host [--mock] [--host <loopback>] [--port <n>] [--web-root <dir>]`
   serves the shared UI and JSON API. It rejects non-loopback bind addresses.
+- `p4pilot-demo <start|reset> --repo-root <dir> --demo-root <dir>` starts the
+  dedicated local p4d/host/P4V stack or restores the demo client. The start path
+  waits for both health checks; reset deletes shelves before pending changes,
+  reverts the client, and force-syncs it. It never invokes `p4 submit`.
 - `--mock` (or `P4PILOT_MOCK=1`) → construct core with a `MockP4Runner` seeded
   by the bundled `createMockDepot()` module so the server is demoable with zero
   Perforce setup. Each server receives independent mutable state.
