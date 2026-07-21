@@ -3,6 +3,7 @@ export * from "./types.js";
 export * from "./ztag.js";
 export * from "./p4-client.js";
 export * from "./asset-guard.js";
+export * from "./asset-dependencies.js";
 export * from "./auto-checkout.js";
 export * from "./changelist.js";
 export * from "./config.js";

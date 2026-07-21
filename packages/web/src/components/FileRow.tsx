@@ -1,4 +1,4 @@
-import type { FileView } from "../demo/store.js";
+import type { FileView } from "../backend/types.js";
 import {
   FileCode2,
   Info,

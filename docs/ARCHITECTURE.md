@@ -5,12 +5,12 @@ logic behind a single swappable seam, so the whole system is testable with no
 Perforce server anywhere.**
 
 - **`@p4pilot/core`** — the Perforce brain. Runner seam, `-ztag` parser, typed
-  `P4Client`, asset guard, auto-checkout, changelist/config helpers. Zero MCP
-  knowledge.
-- **`@p4pilot/mcp-server`** — a thin MCP adapter (binary `p4pilot-mcp`) that
-  exposes core as zod-typed MCP tools over stdio. Zero direct `p4` knowledge.
-- **`@p4pilot/web`** — a private React/Vite demo that imports the browser-safe
-  core entry and runs it against an in-memory mock depot. No backend.
+  `P4Client`, asset guard, auto-checkout, asset dependency graph traversal,
+  changelist/config helpers. Zero MCP knowledge.
+- **`@p4pilot/mcp-server`** — thin stdio MCP and loopback HTTP adapters (binaries
+  `p4pilot-mcp` and `p4pilot-host`). Zero direct `p4` knowledge.
+- **`@p4pilot/web`** — one React/Vite workspace UI with injectable mock and HTTP
+  backends.
 
 ## Layers
 
@@ -65,19 +65,40 @@ interface P4Runner {
 `ExecaP4Runner` always injects `-ztag` as the first global arg for parseable
 output and **never throws on non-zero exit** — it returns the `P4Result` and lets
 `P4Client` decide. `MockP4Runner` interprets a subset of subcommands (`info`,
-`fstat`, `opened`, `edit`, `add`, `revert`, `where`, `changes`, `describe`,
-`change -i`, `sync`, `filelog`) against an in-memory `FakeDepotState` and mutates
-that state, so tests drive a real workflow and assert on the result. This single
-seam is why CI needs no Perforce.
+`fstat`, `opened`, `edit`, `add`, `delete`, `revert`, `reopen`, `where`,
+`changes`, `describe`, `describe -S`, `change -i`, `sync`, `filelog`) against an
+in-memory `FakeDepotState`. Mutating commands update the state; shelved review
+fixtures return server-side diffs without changing it. This single seam is why
+CI needs no Perforce.
 
-## Browser demo
+## Pending and shelved review
 
-The web package imports `@p4pilot/core/browser`, which omits `execa`, `node:fs`,
-and process configuration. `DemoProvider` owns a `DemoStore`, exposes operation
-keys for loading and duplicate suppression, refreshes state after mutations, and
-turns failures into a dismissible banner. Workspace and review views therefore
-exercise the same client, parser, asset guard, and checkout workflow as the MCP
-server while remaining a static site.
+`p4_review` reads pending work from the current workspace. `p4_shelved_review`
+instead calls typed core method `describeShelved`, which runs
+tagged `p4 describe -S -s <change>` for indexed metadata and untagged
+`p4 describe -S -du <change>` for the native unified diff. The split is required
+because real Perforce suppresses diff text under `-ztag`. No sync or unshelve
+command is involved, so reviewing a shelf cannot alter current files.
+
+## Shared web backend
+
+`P4PilotBackend` is the UI boundary. `DemoStore` imports
+`@p4pilot/core/browser` and keeps the GitHub Pages demo fully offline.
+`HttpBackend` calls the same-origin `p4pilot-host` API for a real workspace.
+`DemoProvider` exposes operation keys for duplicate suppression, refreshes after
+mutations, and turns failures into a visible disconnected state.
+
+`p4pilot-host` binds only to loopback, serves the Vite build, and translates
+workspace, asset, review, checkout, revert, and changelist requests into typed
+core calls. It intentionally has no submit endpoint.
+
+## Host adapters
+
+P4V uses its official HTML Tab support, Unreal registers a nomad tab containing
+`SWebBrowser`, and Maya creates a dockable `QWebEngineView`. Each points at
+`http://127.0.0.1:4715/p4pilot/?backend=local`; none contains copied UI or
+Perforce logic. Installation details are in
+[`HOST_INTEGRATION.md`](./HOST_INTEGRATION.md).
 
 ## `-ztag` parsing
 
@@ -100,6 +121,31 @@ ordered `Map` records; `groupIndexed` collapses indexed fields into arrays. See
 
 `shouldRead` is `true` only for `text`. `p4_asset_info` and `p4_search` both rely
 on this so agents never ingest binary bytes.
+
+## Unreal asset dependencies
+
+Dependency data follows a separate injectable seam because it belongs to Unreal
+Asset Registry, not Perforce:
+
+```text
+UE Editor / commandlet
+  IAssetRegistry::GetDependencies + GetReferencers
+             | versioned JSON export
+             v
+JsonFileAssetDependencyProvider
+             | AssetDependencyProvider
+             v
+resolveAssetDependencies (BFS, depth/cycle/missing checks)
+             |
+             v
+p4_asset_dependencies
+```
+
+The production provider validates the whole export before returning records.
+The pure core traversal and static test provider remain browser-safe and fully
+offline. If the JSON source is absent or invalid, the provider throws
+`ASSET_DEPENDENCIES_UNAVAILABLE`; neither layer opens `.uasset` files or guesses
+relationships. See [`UNREAL_ASSET_DEPENDENCIES.md`](./UNREAL_ASSET_DEPENDENCIES.md).
 
 ## Auto-checkout
 

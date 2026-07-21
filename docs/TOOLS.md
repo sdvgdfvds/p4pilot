@@ -1,9 +1,10 @@
 # p4pilot MCP Tool Reference
 
 > p4pilot intentionally has no `p4_submit` tool. It prepares and reviews pending
-> changelists; a human submits them through the normal Perforce workflow.
+> or shelved changelists; a human submits them through the normal Perforce
+> workflow.
 
-`@p4pilot/mcp-server` exposes **12 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **18 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
 (see [Error codes](#error-codes)).
@@ -102,6 +103,64 @@ Reverted: //depot/game/src/player.cpp
 
 ---
 
+## `p4_delete`
+
+Open tracked files for delete, optionally in a numbered pending changelist.
+This prepares a delete for human review; it does not submit the changelist.
+
+**Input:** `{ paths: string[] (>=1), changelist?: string }`
+
+```text
+$ p4_delete { "paths": ["/depot/game/src/obsolete.cpp"], "changelist": "813" }
+p4 delete: //depot/game/src/obsolete.cpp
+```
+
+---
+
+## `p4_sync`
+
+Sync the whole workspace, or only the supplied paths, to the latest revision.
+
+**Input:** `{ paths?: string[] (>=1) }`
+
+```text
+$ p4_sync { "paths": ["/depot/game/src/player.cpp"] }
+Synced 1 file(s).
+```
+
+Pass `{}` to sync the whole workspace.
+
+---
+
+## `p4_reopen`
+
+Move files that are already open into a numbered pending changelist without
+changing their actions.
+
+**Input:** `{ paths: string[] (>=1), changelist: string }`
+
+```text
+$ p4_reopen { "paths": ["/depot/game/src/player.cpp"], "changelist": "813" }
+Reopened in changelist 813: //depot/game/src/player.cpp
+```
+
+---
+
+## `p4_where`
+
+Show how one file maps between depot, client, and local filesystem paths.
+
+**Input:** `{ path: string }`
+
+```text
+$ p4_where { "path": "/depot/game/src/player.cpp" }
+depotFile: //depot/game/src/player.cpp
+clientFile: //p4pilot-demo/src/player.cpp
+path: /depot/game/src/player.cpp
+```
+
+---
+
 ## `p4_changelist_create`
 
 Create a pending changelist. The description is prefixed with the configured
@@ -152,14 +211,14 @@ Files:
 
 ## `p4_review`
 
-Turn a changelist into a review-ready summary — "PR review" for Perforce.
-Always fetches the diff.
+Review pending workspace work. This reads the current workspace diff, so use
+`p4_shelved_review` when the review source is a server-side shelf.
 
 **Input:** `{ change: string }`
 
 ```text
 $ p4_review { "change": "812" }
-Review of change 812 — 1 file(s), by demo
+Workspace review of change 812 — 1 file(s), by demo
 wip: player dash ability
 
 Files:
@@ -182,6 +241,37 @@ Diff:
 ```
 
 _(illustrative — requires a real Perforce connection)_
+
+---
+
+## `p4_shelved_review`
+
+Review the files and unified diff stored in a server-side shelf without syncing,
+unshelving, or modifying the current workspace. The implementation follows the
+official [`p4 describe -S`](https://help.perforce.com/helix-core/server-apps/cmdref/current/Content/CmdRef/p4_describe.html)
+behavior and requests `-du` unified output.
+
+**Input:** `{ change: string }`
+
+```text
+$ p4_shelved_review { "change": "814" }
+Shelved review of change 814 — 1 file(s), by demo
+shelved: player dash cooldown
+
+Files:
+  edit  //depot/game/src/player.cpp
+
+Shelved diff:
+--- //depot/game/src/player.cpp#7
++++ //depot/game/src/player.cpp@=814
+@@ -40,3 +40,4 @@
+ void Player::Dash() {
++  cooldown_.Start();
+ }
+```
+
+This tool is distinct from `p4_review`: it reads immutable shelf content from
+the server rather than unsaved edits in the current client workspace.
 
 ---
 
@@ -217,6 +307,38 @@ headRev: 4
 shouldRead: true
 reason: text extension .cpp
 ```
+
+---
+
+## `p4_asset_dependencies`
+
+Query Unreal package relationships from a configured Asset Registry export.
+The tool does not read `.uasset` bytes. Paths are the package names present in
+the export, normally `/Game/...`.
+
+**Input:**
+`{ path: string, direction?: "dependencies" | "referencers" | "both", depth?: number (1..10) }`
+
+Defaults are `direction: "both"` and `depth: 1`.
+
+```text
+$ p4_asset_dependencies { "path": "/Game/Hero", "direction": "both", "depth": 2 }
+Asset dependencies for /Game/Hero
+provider: unreal-asset-registry:D:\exports\asset-registry.json
+direction: both
+depth: 2
+direct dependency: /Game/HeroMesh
+direct dependency: /Game/HeroAnimation
+direct referencer: /Game/Maps/Arena
+dependency[2]: /Game/Materials/Hero
+risk: Asset Registry data may omit references created only at runtime.
+```
+
+Missing registry records appear as `missing:` lines and matching `risk:` lines.
+If no UE export is configured, the call fails with
+`ASSET_DEPENDENCIES_UNAVAILABLE` rather than returning invented results. Setup
+and the versioned JSON contract are in
+[`UNREAL_ASSET_DEPENDENCIES.md`](./UNREAL_ASSET_DEPENDENCIES.md).
 
 ---
 
@@ -256,13 +378,16 @@ text files are searched.
 
 Tool errors are formatted as `p4pilot error [CODE]: message`. Codes:
 
-| Code                 | Meaning                                                |
-| -------------------- | ------------------------------------------------------ |
-| `P4_NOT_FOUND`       | the `p4` binary is not installed / not on `PATH`       |
-| `P4_COMMAND_FAILED`  | `p4` returned a non-zero exit (message carries stderr) |
-| `NOT_CONNECTED`      | no `P4PORT` / not logged in                            |
-| `FILE_NOT_IN_CLIENT` | path is not mapped into the workspace                  |
-| `INVALID_INPUT`      | the arguments failed validation                        |
+| Code                             | Meaning                                                |
+| -------------------------------- | ------------------------------------------------------ |
+| `P4_NOT_FOUND`                   | the `p4` binary is not installed / not on `PATH`       |
+| `P4_COMMAND_FAILED`              | `p4` returned a non-zero exit (message carries stderr) |
+| `NOT_CONNECTED`                  | no `P4PORT` / not logged in                            |
+| `FILE_NOT_IN_CLIENT`             | path is not mapped into the workspace                  |
+| `NO_SHELVED_FILES`               | changelist exists but contains no shelved files        |
+| `ASSET_DEPENDENCIES_UNAVAILABLE` | UE Asset Registry export is absent or invalid          |
+| `ASSET_NOT_FOUND`                | requested Unreal package is absent from the export     |
+| `INVALID_INPUT`                  | the arguments failed validation                        |
 
 Example:
 

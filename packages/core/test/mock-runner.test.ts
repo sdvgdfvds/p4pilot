@@ -17,6 +17,23 @@ const seed = () =>
         sizeBytes: 10,
       },
     ],
+    shelvedChangelists: [
+      {
+        change: "44",
+        description: "shelved change",
+        user: "u",
+        client: "c",
+        files: [
+          {
+            depotFile: "//depot/a.c",
+            action: "edit",
+            rev: 1,
+            type: "text",
+            diff: "--- //depot/a.c#1\n+++ //depot/a.c@=44\n@@ -1 +1 @@\n-old\n+new",
+          },
+        ],
+      },
+    ],
   });
 
 describe("MockP4Runner", () => {
@@ -36,5 +53,40 @@ describe("MockP4Runner", () => {
     expect(
       m.state.files.find((f) => f.clientFile === "/ws/new.c")?.opened?.action,
     ).toBe("add");
+  });
+  it("delete opens a tracked file for delete", async () => {
+    const m = seed();
+    const result = await m.run(["delete", "-c", "42", "/ws/a.c"]);
+    expect(result.exitCode).toBe(0);
+    expect(m.state.files[0]!.opened).toEqual({
+      action: "delete",
+      change: "42",
+    });
+  });
+  it("reopen preserves the action and changes the changelist", async () => {
+    const m = seed();
+    await m.run(["edit", "/ws/a.c"]);
+    const result = await m.run(["reopen", "-c", "43", "/ws/a.c"]);
+    expect(result.exitCode).toBe(0);
+    expect(m.state.files[0]!.opened).toEqual({
+      action: "edit",
+      change: "43",
+    });
+  });
+  it("sync honors requested paths", async () => {
+    const result = await seed().run(["sync", "/ws/a.c"]);
+    expect(parseZtag(result.stdout)).toHaveLength(1);
+  });
+  it("describe -S emits tagged metadata separately from native unified diff", async () => {
+    const runner = seed();
+    const result = await runner.run(["describe", "-S", "-s", "44"]);
+    const diff = await runner.run(["describe", "-S", "-du", "44"], {
+      tagged: false,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("... depotFile0 //depot/a.c");
+    expect(result.stdout).not.toContain("+++ //depot/a.c@=44");
+    expect(diff.stdout).toContain("==== //depot/a.c#1 (text) ====");
+    expect(diff.stdout).toContain("+++ //depot/a.c@=44");
   });
 });

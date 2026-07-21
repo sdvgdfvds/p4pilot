@@ -149,6 +149,10 @@ select:focus-visible {
   box-shadow: 0 0 0 3px rgba(68, 194, 123, 0.13);
 }
 
+.runtime-status.disconnected > span {
+  background: #c5392f;
+}
+
 .repo-link {
   gap: 6px;
   min-height: 34px;

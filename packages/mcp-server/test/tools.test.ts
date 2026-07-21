@@ -1,4 +1,5 @@
 import {
+  StaticAssetDependencyProvider,
   DEFAULT_ASSET_GUARD_CONFIG,
   P4Client,
   type P4PilotConfig,
@@ -8,17 +9,23 @@ import { describe, expect, it } from "vitest";
 
 import {
   assetInfo,
+  assetDependencies,
   add,
   changelistCreate,
   changelistList,
+  deleteFiles,
   describe as describeChange,
   edit,
   filelog,
+  reopen,
   revert,
   review,
   search,
+  shelvedReview,
   smartEdit,
   status,
+  sync,
+  where,
   type Searcher,
   type ToolContext,
 } from "../src/tools.js";
@@ -27,6 +34,7 @@ const config: P4PilotConfig = {
   p4Path: "p4",
   mock: true,
   assetGuard: DEFAULT_ASSET_GUARD_CONFIG,
+  assetDependencies: {},
   defaultChangelistPrefix: "[p4pilot] ",
   env: {},
 };
@@ -61,13 +69,36 @@ const seed = () =>
         files: ["//depot/a.c"],
       },
     ],
+    shelvedChangelists: [
+      {
+        change: "814",
+        description: "shelved dash review",
+        user: "alice",
+        client: "ws",
+        files: [
+          {
+            depotFile: "//depot/a.c",
+            action: "edit",
+            rev: 2,
+            type: "text",
+            diff: "--- //depot/a.c#2\n+++ //depot/a.c@=814\n@@ -1 +1 @@\n-old\n+new",
+          },
+        ],
+      },
+    ],
   });
 
 function makeCtx(
   runner: MockP4Runner,
   searcher: Searcher = async () => [],
+  dependencyProvider = new StaticAssetDependencyProvider("empty", []),
 ): ToolContext {
-  return { client: new P4Client(runner), config, search: searcher };
+  return {
+    client: new P4Client(runner),
+    config,
+    search: searcher,
+    assetDependencies: dependencyProvider,
+  };
 }
 
 describe("mcp tool handlers", () => {
@@ -134,6 +165,45 @@ describe("mcp tool handlers", () => {
     expect(result.content[0]!.text).toContain("Reverted: //depot/a.c");
   });
 
+  it("deleteFiles opens a tracked file for delete in the requested changelist", async () => {
+    const runner = seed();
+    const result = await deleteFiles(makeCtx(runner), {
+      paths: ["/ws/a.c"],
+      changelist: "902",
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "delete",
+      change: "902",
+    });
+    expect(result.content[0]!.text).toContain("p4 delete: //depot/a.c");
+  });
+
+  it("sync supports explicit paths and reports the synced count", async () => {
+    const result = await sync(makeCtx(seed()), { paths: ["/ws/a.c"] });
+    expect(result.content[0]!.text).toBe("Synced 1 file(s).");
+  });
+
+  it("reopen moves opened files into the requested changelist", async () => {
+    const runner = seed();
+    await runner.run(["edit", "/ws/a.c"]);
+    const result = await reopen(makeCtx(runner), {
+      paths: ["/ws/a.c"],
+      changelist: "903",
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "edit",
+      change: "903",
+    });
+    expect(result.content[0]!.text).toContain("Reopened in changelist 903");
+  });
+
+  it("where returns depot, client, and local mappings", async () => {
+    const result = await where(makeCtx(seed()), { path: "/ws/a.c" });
+    expect(result.content[0]!.text).toContain("depotFile: //depot/a.c");
+    expect(result.content[0]!.text).toContain("clientFile: /ws/a.c");
+    expect(result.content[0]!.text).toContain("path: /ws/a.c");
+  });
+
   it("changelistCreate prefixes the description and returns a number", async () => {
     const result = await changelistCreate(makeCtx(seed()), {
       description: "dash ability",
@@ -153,8 +223,15 @@ describe("mcp tool handlers", () => {
       (await describeChange(ctx, { change: "812" })).content[0]!.text,
     ).toContain("//depot/a.c");
     expect((await review(ctx, { change: "812" })).content[0]!.text).toContain(
-      "Review of change 812",
+      "Workspace review of change 812",
     );
+  });
+
+  it("shelvedReview returns an explicitly shelved unified diff", async () => {
+    const result = await shelvedReview(makeCtx(seed()), { change: "814" });
+    expect(result.content[0]!.text).toContain("Shelved review of change 814");
+    expect(result.content[0]!.text).toContain("//depot/a.c");
+    expect(result.content[0]!.text).toContain("@@ -1 +1 @@");
   });
 
   it("assetInfo withholds bytes for a binary asset", async () => {
@@ -163,6 +240,26 @@ describe("mcp tool handlers", () => {
     });
     expect(result.content[0]!.text).toContain("shouldRead: false");
     expect(result.content[0]!.text).toContain("content withheld");
+  });
+
+  it("assetDependencies returns registry relationships and risks", async () => {
+    const dependencies = new StaticAssetDependencyProvider("ue-fixture", [
+      {
+        path: "/Game/Hero",
+        dependencies: ["/Game/Mesh", "/Game/Missing"],
+        referencers: ["/Game/Level"],
+      },
+      { path: "/Game/Mesh", dependencies: [], referencers: ["/Game/Hero"] },
+      { path: "/Game/Level", dependencies: ["/Game/Hero"], referencers: [] },
+    ]);
+    const result = await assetDependencies(
+      makeCtx(seed(), async () => [], dependencies),
+      { path: "/Game/Hero", direction: "both", depth: 1 },
+    );
+    expect(result.content[0]!.text).toContain("provider: ue-fixture");
+    expect(result.content[0]!.text).toContain("dependency: /Game/Mesh");
+    expect(result.content[0]!.text).toContain("referencer: /Game/Level");
+    expect(result.content[0]!.text).toContain("missing: /Game/Missing");
   });
 
   it("filelog returns revision history", async () => {

@@ -3,7 +3,21 @@ import { AlertCircle, GitPullRequest, LayoutDashboard, X } from "lucide-react";
 import { Header } from "./components/Header.js";
 import { Dashboard } from "./components/Dashboard.js";
 import { ReviewView } from "./components/ReviewView.js";
+import { HttpBackend } from "./backend/http-backend.js";
+import type { P4PilotBackend } from "./backend/types.js";
+import { DemoStore } from "./demo/store.js";
 import { DemoProvider, useDemo } from "./demo/useDemo.js";
+
+export function backendFromLocation(location: Location): P4PilotBackend {
+  const configured = new URLSearchParams(location.search).get("backend");
+  if (configured === null) return new DemoStore();
+  const baseUrl = configured === "local" ? location.origin : configured;
+  const url = new URL(baseUrl);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("backend URL must use http or https");
+  }
+  return new HttpBackend(url.origin);
+}
 
 function Workspace() {
   const [tab, setTab] = useState<"dashboard" | "review">("dashboard");
@@ -52,9 +66,9 @@ function Workspace() {
   );
 }
 
-export function App() {
+export function App({ backend }: { backend?: P4PilotBackend }) {
   return (
-    <DemoProvider>
+    <DemoProvider store={backend ?? backendFromLocation(window.location)}>
       <Workspace />
     </DemoProvider>
   );

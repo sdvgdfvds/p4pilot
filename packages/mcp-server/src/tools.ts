@@ -4,6 +4,9 @@ import {
   classifyAsset,
   ensureOpenForEditMany,
   P4PilotError,
+  resolveAssetDependencies,
+  type AssetDependencyDirection,
+  type AssetDependencyProvider,
   type P4Client,
   type P4PilotConfig,
 } from "@p4pilot/core";
@@ -24,6 +27,7 @@ export interface ToolContext {
   client: P4Client;
   config: P4PilotConfig;
   search: Searcher;
+  assetDependencies: AssetDependencyProvider;
 }
 
 export interface ToolResult {
@@ -127,6 +131,50 @@ export async function revert(
   return ok(`Reverted: ${reverted.join(", ") || "(none)"}`);
 }
 
+export async function deleteFiles(
+  ctx: ToolContext,
+  args: { paths: string[]; changelist?: string },
+): Promise<ToolResult> {
+  const opts =
+    args.changelist === undefined ? undefined : { changelist: args.changelist };
+  const opened = await ctx.client.deleteFiles(args.paths, opts);
+  return ok(
+    `p4 delete: ${opened.map((file) => file.depotFile).join(", ") || "(none)"}`,
+  );
+}
+
+export async function sync(
+  ctx: ToolContext,
+  args: { paths?: string[] },
+): Promise<ToolResult> {
+  const result = await ctx.client.sync(args.paths);
+  return ok(`Synced ${result.synced} file(s).`);
+}
+
+export async function reopen(
+  ctx: ToolContext,
+  args: { paths: string[]; changelist: string },
+): Promise<ToolResult> {
+  const opened = await ctx.client.reopen(args.paths, args.changelist);
+  return ok(
+    `Reopened in changelist ${args.changelist}: ${opened.map((file) => file.depotFile).join(", ") || "(none)"}`,
+  );
+}
+
+export async function where(
+  ctx: ToolContext,
+  args: { path: string },
+): Promise<ToolResult> {
+  const mapping = await ctx.client.where(args.path);
+  return ok(
+    [
+      `depotFile: ${mapping.depotFile}`,
+      `clientFile: ${mapping.clientFile}`,
+      `path: ${mapping.path}`,
+    ].join("\n"),
+  );
+}
+
 export async function changelistCreate(
   ctx: ToolContext,
   args: { description: string },
@@ -198,8 +246,23 @@ export async function review(
     .join("\n");
   const diff = result.diff ?? "(no diff available)";
   return ok(
-    `Review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
+    `Workspace review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
       `${result.description}\n\nFiles:\n${files}\n\nDiff:\n${diff}`,
+  );
+}
+
+export async function shelvedReview(
+  ctx: ToolContext,
+  args: { change: string },
+): Promise<ToolResult> {
+  const result = await ctx.client.describeShelved(args.change);
+  const files = result.files
+    .map((file) => `  ${file.action}\t${file.depotFile}`)
+    .join("\n");
+  const diff = result.diff ?? "(no text diff available)";
+  return ok(
+    `Shelved review of change ${result.change} — ${result.files.length} file(s), by ${result.user ?? "unknown"}\n` +
+      `${result.description}\n\nFiles:\n${files}\n\nShelved diff:\n${diff}`,
   );
 }
 
@@ -222,6 +285,41 @@ export async function assetInfo(
     ? ""
     : "\n\n(binary / large asset — content withheld; act on the metadata above, do not read bytes)";
   return ok(lines.join("\n") + note);
+}
+
+export async function assetDependencies(
+  ctx: ToolContext,
+  args: {
+    path: string;
+    direction?: AssetDependencyDirection;
+    depth?: number;
+  },
+): Promise<ToolResult> {
+  const report = await resolveAssetDependencies(
+    ctx.assetDependencies,
+    args.path,
+    {
+      direction: args.direction,
+      depth: args.depth,
+    },
+  );
+  const lines = [
+    `Asset dependencies for ${report.path}`,
+    `provider: ${report.provider}`,
+    `direction: ${report.direction}`,
+    `depth: ${report.depth}`,
+    ...report.directDependencies.map((path) => `direct dependency: ${path}`),
+    ...report.directReferencers.map((path) => `direct referencer: ${path}`),
+    ...report.dependencies
+      .filter((link) => link.depth > 1)
+      .map((link) => `dependency[${link.depth}]: ${link.path}`),
+    ...report.referencers
+      .filter((link) => link.depth > 1)
+      .map((link) => `referencer[${link.depth}]: ${link.path}`),
+    ...report.missingAssets.map((path) => `missing: ${path}`),
+    ...report.risks.map((risk) => `risk: ${risk}`),
+  ];
+  return ok(lines.join("\n"));
 }
 
 export async function filelog(
@@ -311,6 +409,43 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     (args) => guard(() => revert(ctx, args)),
   );
   server.registerTool(
+    "p4_delete",
+    {
+      title: "p4 delete",
+      description: "Open tracked files for delete.",
+      inputSchema: { paths, changelist },
+    },
+    (args) => guard(() => deleteFiles(ctx, args)),
+  );
+  server.registerTool(
+    "p4_sync",
+    {
+      title: "p4 sync",
+      description:
+        "Sync the workspace or selected paths to the latest revision.",
+      inputSchema: { paths: paths.optional() },
+    },
+    (args) => guard(() => sync(ctx, args)),
+  );
+  server.registerTool(
+    "p4_reopen",
+    {
+      title: "p4 reopen",
+      description: "Move opened files to a pending changelist.",
+      inputSchema: { paths, changelist: z.string().min(1) },
+    },
+    (args) => guard(() => reopen(ctx, args)),
+  );
+  server.registerTool(
+    "p4_where",
+    {
+      title: "p4 where",
+      description: "Show the depot, client, and local path mapping for a file.",
+      inputSchema: { path: z.string().min(1) },
+    },
+    (args) => guard(() => where(ctx, args)),
+  );
+  server.registerTool(
     "p4_changelist_create",
     {
       title: "Create changelist",
@@ -351,6 +486,16 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     (args) => guard(() => review(ctx, args)),
   );
   server.registerTool(
+    "p4_shelved_review",
+    {
+      title: "Review shelved changelist",
+      description:
+        "Review files shelved on the server without changing the workspace.",
+      inputSchema: { change: z.string().min(1) },
+    },
+    (args) => guard(() => shelvedReview(ctx, args)),
+  );
+  server.registerTool(
     "p4_asset_info",
     {
       title: "Asset info",
@@ -359,6 +504,20 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       inputSchema: { path: z.string() },
     },
     (args) => guard(() => assetInfo(ctx, args)),
+  );
+  server.registerTool(
+    "p4_asset_dependencies",
+    {
+      title: "Unreal asset dependencies",
+      description:
+        "Read dependencies and referencers from a configured Unreal Asset Registry export.",
+      inputSchema: {
+        path: z.string().min(1),
+        direction: z.enum(["dependencies", "referencers", "both"]).optional(),
+        depth: z.number().int().min(1).max(10).optional(),
+      },
+    },
+    (args) => guard(() => assetDependencies(ctx, args)),
   );
   server.registerTool(
     "p4_filelog",

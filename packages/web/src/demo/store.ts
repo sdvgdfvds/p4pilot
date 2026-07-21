@@ -4,48 +4,45 @@ import {
   ensureOpenForEditMany,
   MockP4Runner,
   P4Client,
-  type AssetKind,
   type ChangelistSummary,
   type CheckoutResult,
 } from "@p4pilot/core/browser";
-import { toDiffRows, type DiffRow } from "../diff.js";
+import type {
+  AssetInfoData,
+  FileView,
+  P4PilotBackend,
+  ReviewData,
+  WorkspaceSnapshot,
+} from "../backend/types.js";
+import { toDiffRows } from "../diff.js";
 import { makeSeed, type DemoSeed } from "./seed.js";
 
-export interface FileView {
-  depotFile: string;
-  clientFile: string;
-  kind: AssetKind;
-  shouldRead: boolean;
-  opened: boolean;
-  action?: string;
-  change?: string;
-  headRev?: number;
-}
+export type { AssetInfoData, FileView, ReviewData } from "../backend/types.js";
 
-export interface ReviewData {
-  change: string;
-  description: string;
-  user?: string;
-  files: { depotFile: string; action: string; rows: DiffRow[] }[];
-}
-
-export interface AssetInfoData {
-  path: string;
-  kind: AssetKind;
-  filetype?: string;
-  tracked: boolean;
-  headRev?: number;
-  shouldRead: boolean;
-  reason: string;
-}
-
-export class DemoStore {
+export class DemoStore implements P4PilotBackend {
   readonly #seed: DemoSeed;
   readonly #client: P4Client;
 
   constructor() {
     this.#seed = makeSeed();
     this.#client = new P4Client(new MockP4Runner(this.#seed.depot));
+  }
+
+  async getWorkspace(): Promise<WorkspaceSnapshot> {
+    const [files, changelists] = await Promise.all([
+      this.listFiles(),
+      this.listChangelists(),
+    ]);
+    return {
+      connection: {
+        mode: "mock",
+        workspace: this.#seed.depot.client ?? "p4pilot-demo",
+        user: this.#seed.depot.user,
+        root: this.#seed.depot.root,
+      },
+      files,
+      changelists,
+    };
   }
 
   async listFiles(): Promise<FileView[]> {

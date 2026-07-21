@@ -1,6 +1,15 @@
 import { Code2, Compass, ExternalLink } from "lucide-react";
+import { useDemo } from "../demo/useDemo.js";
 
 export function Header() {
+  const { connection, ready } = useDemo();
+  const status = !ready
+    ? "Connecting"
+    : connection === null
+      ? "Disconnected"
+      : connection.mode === "live"
+        ? `Live · ${connection.workspace}`
+        : "Real core · mock depot";
   return (
     <header className="app-header">
       <div className="header-inner">
@@ -14,9 +23,11 @@ export function Header() {
           </div>
         </div>
         <div className="header-actions">
-          <span className="runtime-status">
+          <span
+            className={`runtime-status ${ready && connection === null ? "disconnected" : ""}`}
+          >
             <span aria-hidden="true" />
-            Real core · mock depot
+            {status}
           </span>
           <a
             className="repo-link"

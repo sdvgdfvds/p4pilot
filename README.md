@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-83%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-113%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -19,10 +19,10 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 ---
 
-> **✅ Status: MVP + Phase 2 demo live.** Core + MCP server are done and fully
-> tested — 83 tests, green in CI, and runnable today with zero Perforce via
-> `--mock`. The Phase 2 in-browser demo (changelist dashboard + review UI) is
-> now live.
+> **✅ Status: MCP, browser UI, and host integrations ready.** Core + MCP server
+> are fully tested — 113 tests, green in CI, and runnable today with zero
+> Perforce via `--mock`. The same UI can run as the live local workspace in P4V,
+> Unreal Editor, and Maya.
 >
 > **▶ Live demo (no install):** https://sdvgdfvds.github.io/p4pilot/
 
@@ -55,7 +55,7 @@ edit	//depot/game/src/main.cpp (change 813)
 edit	//depot/game/Content/Hero.uasset (change 813)
 ```
 
-Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 12
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 18
 tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists
@@ -87,6 +87,7 @@ intercepted file writes to enforce `p4 edit`.** Until you build that bridge,
 | 🔓 **Smart auto-checkout**       | Before the agent edits a file, p4pilot ensures it's `p4 edit`-ed (or `p4 add`-ed if new) into the right changelist. The exact hook studios hand-roll — built in.                              |
 | 🗂️ **Changelist-aware planning** | The agent groups its work into pending changelists with generated descriptions, instead of dumping everything into `default`.                                                                 |
 | 🛡️ **Binary-asset guard**        | `.uasset`/`.fbx`/`.psd` and other large binaries are detected and returned as **metadata** (type, size, last change, who touched it) instead of choking the context window with binary bytes. |
+| 🔗 **UE asset dependencies**     | Reads direct/transitive dependencies and referencers from an Unreal Asset Registry export, including missing-record and traversal-risk warnings.                                              |
 | 🔎 **Depot code search**         | Fast text search over the synced workspace that automatically skips binary assets.                                                                                                            |
 | 👀 **Changelist code review**    | Turn a pending or shelved changelist into a structured, review-ready diff — "PR review" for Perforce.                                                                                         |
 | 🧾 **History & blame**           | `filelog`/`describe`-backed history so the agent can answer "who changed this and why".                                                                                                       |
@@ -167,6 +168,18 @@ node packages/mcp-server/dist/index.js --mock   # or wire the built binary into 
 Ready-to-copy config snippets for each client live in
 [`examples/`](./examples).
 
+### Run the local host UI
+
+After `npm run build`, start the loopback-only service:
+
+```bash
+node packages/mcp-server/dist/http.js --host 127.0.0.1 --port 4715 --web-root packages/web/dist
+```
+
+Open `http://127.0.0.1:4715/p4pilot/?backend=local`, or embed that URL using the
+provided [P4V, Unreal Editor, or Maya host](./docs/HOST_INTEGRATION.md). The page
+uses the active Perforce environment and reports explicit disconnected states.
+
 ## Architecture
 
 ```
@@ -201,9 +214,9 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] Polish: examples, CI, tool reference & architecture docs
 - [x] **Phase 2:** React demo panel (changelist dashboard + review UI), live in-browser on GitHub Pages
 - [x] Human-owned submit boundary: p4pilot prepares and reviews; a person submits
-- [ ] Embed the review panel in PC client / **UE / Maya** WebViews
-- [ ] Shelved-changelist review workflow
-- [ ] Asset dependency surfacing (UE `.uasset` references)
+- [x] Shared live panel in P4V HTML Tab, Unreal `SWebBrowser`, and Maya Qt WebEngine
+- [x] Shelved-changelist review workflow (`p4_shelved_review`)
+- [x] Asset dependency surfacing via injectable Unreal Asset Registry provider
 
 ## Contributing
 

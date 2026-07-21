@@ -15,8 +15,8 @@ code, and review changelists like pull requests.
 
 ## 2. Product boundaries
 
-- The standalone Phase 2 browser demo is shipped. Embedding it in UE, Maya, or a
-  Perforce desktop client remains future work.
+- The browser UI supports both an offline demo backend and the localhost
+  `p4pilot-host` backend. P4V, Unreal Editor, and Maya load this same build.
 - No `p4 submit` automation. p4pilot prepares changelists; a human reviews and
   submits them. No MCP tool may bypass that approval boundary.
 - No embeddings/vector index. Search is text/grep-based (matches how CLI agents
@@ -53,18 +53,21 @@ export interface P4RunOptions {
   cwd?: string;
   input?: string; // stdin, e.g. for `p4 change -i`
   env?: Record<string, string>;
+  tagged?: boolean; // defaults to true; false preserves native text output
 }
 
 export interface P4Runner {
-  /** Runs `p4 -ztag <args>` (the -ztag flag is added by the runner). */
+  /** Runs `p4 -ztag <args>` unless opts.tagged is explicitly false. */
   run(args: string[], opts?: P4RunOptions): Promise<P4Result>;
 }
 ```
 
 - **`ExecaP4Runner implements P4Runner`** — spawns the real `p4` binary via
-  `execa`, always injecting `-ztag` as the first global arg for parseable
-  output. Constructor takes `{ p4Path?: string; env?: Record<string,string> }`.
-  Never throws on non-zero exit; returns the `P4Result` so callers decide.
+  `execa`, injecting `-ztag` as the first global arg by default for parseable
+  output. Callers may set `tagged: false` for commands whose native text format
+  is required, such as unified diffs. Constructor takes
+  `{ p4Path?: string; env?: Record<string,string> }`. Never throws on non-zero
+  exit; returns the `P4Result` so callers decide.
 - **`MockP4Runner implements P4Runner`** — see 4.7.
 
 ### 4.2 `ztag` parser — `src/ztag.ts`
@@ -141,6 +144,10 @@ export interface DescribeResult {
   diff?: string;         // unified diff text when requested
 }
 
+export interface ShelvedReviewResult extends DescribeResult {
+  reviewType: "shelved";
+}
+
 export class P4PilotError extends Error {
   constructor(message: string, readonly code: P4PilotErrorCode, readonly detail?: string);
 }
@@ -149,6 +156,9 @@ export type P4PilotErrorCode =
   | "P4_COMMAND_FAILED"  // non-zero exit
   | "NOT_CONNECTED"      // no P4PORT/login
   | "FILE_NOT_IN_CLIENT" // path not mapped to workspace
+  | "NO_SHELVED_FILES"   // successful describe response had no shelves
+  | "ASSET_DEPENDENCIES_UNAVAILABLE" // no valid UE Asset Registry provider
+  | "ASSET_NOT_FOUND"     // requested package absent from registry export
   | "INVALID_INPUT";
 ```
 
@@ -182,6 +192,7 @@ export class P4Client {
     user?: string;
   }): Promise<ChangelistSummary[]>;
   describe(change: string, opts?: { diff?: boolean }): Promise<DescribeResult>;
+  describeShelved(change: string): Promise<ShelvedReviewResult>;
   filelog(
     file: string,
     opts?: { max?: number },
@@ -198,6 +209,14 @@ export class P4Client {
   reopen(files: string[], changelist: string): Promise<OpenedFile[]>;
 }
 ```
+
+`describeShelved` first runs tagged `p4 describe -S -s <change>` and parses
+indexed file metadata across multiple ztag records. Real Perforce suppresses
+diff text when `-ztag` is present, so it then runs untagged
+`p4 describe -S -du <change>` and extracts every native unified diff segment.
+Neither call syncs, unshelves, or otherwise changes the workspace. A successful
+metadata response with no shelved files raises `NO_SHELVED_FILES`; a non-zero
+Perforce response remains `P4_COMMAND_FAILED`.
 
 `newChangelist` uses `p4 change -i` with a generated change spec on stdin and
 parses the resulting `Change NNNN created.` message.
@@ -279,7 +298,8 @@ export function ensureOpenForEditMany(
 
 An in-memory fake depot implementing `P4Runner`. Seeded with a `FakeDepot`
 description; interprets a subset of `p4` subcommands (`fstat`, `opened`, `edit`,
-`add`, `revert`, `where`, `changes`, `describe`, `change -i`, `info`) and emits
+`add`, `delete`, `revert`, `reopen`, `sync`, `where`, `changes`, `describe`,
+`change -i`, `info`) and emits
 **real -ztag-formatted stdout** so it exercises the same parser as production.
 
 ```ts
@@ -299,6 +319,23 @@ export interface FakeDepotState {
   user?: string;
   files: FakeFile[];
   changelists?: ChangelistSummary[];
+  shelvedChangelists?: FakeShelvedChangelist[];
+}
+
+export interface FakeShelvedFile {
+  depotFile: string;
+  action: P4Action;
+  rev?: number;
+  type?: string;
+  diff?: string;
+}
+
+export interface FakeShelvedChangelist {
+  change: string;
+  description: string;
+  user?: string;
+  client?: string;
+  files: FakeShelvedFile[];
 }
 
 export class MockP4Runner implements P4Runner {
@@ -319,6 +356,7 @@ export interface P4PilotConfig {
   mock: boolean; // P4PILOT_MOCK=1
   assetGuard: AssetGuardConfig;
   defaultChangelistPrefix: string; // default "[p4pilot] "
+  assetDependencies: { registryJsonPath?: string };
   env: { P4PORT?: string; P4CLIENT?: string; P4USER?: string };
 }
 
@@ -334,6 +372,50 @@ export function loadConfig(opts?: {
 Barrel export of the public API: runner interface + both runners, `P4Client`,
 asset-guard, auto-checkout, changelist helpers, config, types, `P4PilotError`.
 
+### 4.10 Asset dependencies — `src/asset-dependencies.ts`
+
+Asset relationships come from an injectable provider. Core never parses
+`.uasset` bytes and never assumes that a depot path maps to an Unreal package.
+
+```ts
+export type AssetDependencyDirection = "dependencies" | "referencers" | "both";
+
+export interface AssetDependencyRecord {
+  path: string; // Unreal package name, e.g. /Game/Characters/Hero
+  dependencies: string[];
+  referencers: string[];
+}
+
+export interface AssetDependencyProvider {
+  readonly name: string;
+  getAsset(path: string): Promise<AssetDependencyRecord | undefined>;
+}
+
+export interface AssetDependencyReport {
+  path: string;
+  provider: string;
+  direction: AssetDependencyDirection;
+  depth: number;
+  directDependencies: string[];
+  directReferencers: string[];
+  dependencies: Array<{ path: string; depth: number }>;
+  referencers: Array<{ path: string; depth: number }>;
+  missingAssets: string[];
+  risks: string[];
+}
+
+export function resolveAssetDependencies(
+  provider: AssetDependencyProvider,
+  path: string,
+  opts?: { direction?: AssetDependencyDirection; depth?: number },
+): Promise<AssetDependencyReport>;
+```
+
+Traversal is breadth-first, deduplicated, limited to depth 1–10, and reports
+cycles, missing records, depth cutoffs, and the Asset Registry's inability to
+observe references created only at runtime. `StaticAssetDependencyProvider`
+supports deterministic offline fixtures.
+
 ## 5. Package: `@p4pilot/mcp-server`
 
 Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
@@ -342,6 +424,8 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 ### 5.1 Startup
 
 - `p4pilot-mcp [--mock] [--cwd <dir>]`.
+- `p4pilot-host [--mock] [--host <loopback>] [--port <n>] [--web-root <dir>]`
+  serves the shared UI and JSON API. It rejects non-loopback bind addresses.
 - `--mock` (or `P4PILOT_MOCK=1`) → construct core with a `MockP4Runner` seeded
   by the bundled `createMockDepot()` module so the server is demoable with zero
   Perforce setup. Each server receives independent mutable state.
@@ -349,20 +433,26 @@ Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
 
 ### 5.2 Tools (each has a zod input schema; each returns structured text content)
 
-| Tool                   | Input                                      | Behavior                                                                          |
-| ---------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `p4_status`            | `{}`                                       | opened files + count summary                                                      |
-| `p4_smart_edit`        | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
-| `p4_edit`              | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
-| `p4_add`               | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
-| `p4_revert`            | `{ paths: string[] }`                      | `client.revert`                                                                   |
-| `p4_changelist_create` | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
-| `p4_changelist_list`   | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
-| `p4_describe`          | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
-| `p4_review`            | `{ change: string }`                       | `describe` with `diff:true`, formatted as a review-ready summary (files + hunks)  |
-| `p4_asset_info`        | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
-| `p4_search`            | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
-| `p4_filelog`           | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
+| Tool                    | Input                                      | Behavior                                                                          |
+| ----------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `p4_status`             | `{}`                                       | opened files + count summary                                                      |
+| `p4_smart_edit`         | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
+| `p4_edit`               | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
+| `p4_add`                | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
+| `p4_delete`             | `{ paths: string[], changelist?: string }` | `client.deleteFiles`                                                              |
+| `p4_revert`             | `{ paths: string[] }`                      | `client.revert`                                                                   |
+| `p4_sync`               | `{ paths?: string[] }`                     | `client.sync`                                                                     |
+| `p4_reopen`             | `{ paths: string[], changelist: string }`  | `client.reopen`                                                                   |
+| `p4_where`              | `{ path: string }`                         | `client.where`                                                                    |
+| `p4_changelist_create`  | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
+| `p4_changelist_list`    | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
+| `p4_describe`           | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
+| `p4_review`             | `{ change: string }`                       | pending workspace review via `describe` with `diff:true`                          |
+| `p4_shelved_review`     | `{ change: string }`                       | server-side shelved review via `client.describeShelved`; never changes workspace  |
+| `p4_asset_info`         | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
+| `p4_asset_dependencies` | `{ path, direction?, depth? }`             | query injected UE Asset Registry provider; return links, missing assets, risks    |
+| `p4_search`             | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
+| `p4_filelog`            | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
 
 ### 5.3 Errors
 
@@ -378,53 +468,101 @@ Tool handlers catch `P4PilotError` and return an MCP tool error with the
   `InMemoryTransport`), `listTools`, `callTool("p4_smart_edit", …)`, assert the
   fake depot state changed (file now opened).
 
-### 5.5 Human submit boundary
+### 5.5 Unreal Asset Registry provider
 
-The MCP surface intentionally stops at pending changelists. It may create,
-populate, describe, and review a changelist, but it does not expose `p4 submit`.
-Submission remains a deliberate human action after review.
+The Node server loads a zod-validated, versioned JSON export when
+`P4PILOT_UE_ASSET_REGISTRY_JSON` or
+`.p4pilot.json#assetDependencies.registryJsonPath` is set. In `--mock` mode it
+uses a bundled static graph. Without either source, the tool returns
+`ASSET_DEPENDENCIES_UNAVAILABLE`; it never fabricates an empty graph. See
+[`UNREAL_ASSET_DEPENDENCIES.md`](./UNREAL_ASSET_DEPENDENCIES.md).
+
+### 5.6 Human submit boundary
+
+The MCP surface intentionally stops at pending and shelved changelists. It may
+create, populate, describe, and review a changelist, but it does not expose
+`p4 submit`. Submission remains a deliberate human action after review.
+
+### 5.7 Local host service
+
+`p4pilot-host` exposes a loopback-only JSON API and serves `packages/web/dist`
+from the same origin. Routes are limited to the UI workflows:
+
+- `GET /api/health`
+- `GET /api/workspace` — connection, opened files, pending changelists
+- `GET /api/asset-info?path=...`
+- `GET /api/review?change=...`
+- `POST /api/smart-edit`, `/api/revert`, `/api/changelists`
+
+Responses use typed JSON errors. There is no submit route. Core behavior remains
+behind `P4Client`; the HTTP layer does not duplicate Perforce commands.
 
 ## 6. Package: `@p4pilot/web`
 
-A private React/Vite static application deployed to GitHub Pages. It imports the
-browser-safe `@p4pilot/core/browser` entry and runs a real `P4Client` against a
-fresh in-memory `MockP4Runner`; it has no backend and never contacts Perforce.
+A private React/Vite application deployed to GitHub Pages and served locally by
+`p4pilot-host`. A `P4PilotBackend` interface selects either the in-browser
+`DemoStore` or `HttpBackend` without changing views or components.
+
+```ts
+export interface P4PilotBackend {
+  getWorkspace(): Promise<{
+    connection: {
+      mode: "mock" | "live";
+      workspace: string;
+      user?: string;
+      root?: string;
+    };
+    files: FileView[];
+    changelists: ChangelistSummary[];
+  }>;
+  smartEdit(clientFile: string, changelist?: string): Promise<unknown>;
+  createChangelist(description: string): Promise<string>;
+  revert(clientFile: string): Promise<unknown>;
+  assetInfo(path: string): Promise<AssetInfoData>;
+  review(change: string): Promise<ReviewData>;
+}
+```
 
 ### 6.1 Views
 
-- **Workspace dashboard:** lists fake depot files, asset classifications, open
+- **Workspace dashboard:** lists visible/opened files, asset classifications,
   status, smart checkout, revert, asset metadata, and pending changelists.
 - **Changelist review:** selects a pending changelist and renders its files plus
   a seeded unified diff.
 
 ### 6.2 Async behavior
 
-`DemoProvider` owns the mutable store and refreshes view state after mutations.
+`DemoProvider` owns the injected backend and refreshes view state after mutations.
 Every UI operation has a stable operation key, ignores duplicate in-flight
 requests, exposes a loading state, and maps failures to a dismissible error
-banner. Asset and review responses are guarded against stale updates.
+banner. The header also shows mock/live/disconnected connection state. Asset and
+review responses are guarded against stale updates.
 
 ### 6.3 Deployment
 
 The Vite base is `/p4pilot/`. `.github/workflows/pages.yml` builds
 `packages/web/dist` and deploys it to GitHub Pages after pushes to `main`.
+With no query parameter the static demo uses `DemoStore`; `?backend=local`
+connects `HttpBackend` to the page's origin.
 
 ### 6.4 Directory layout
 
 ```
 packages/core/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,types,ztag,p4-runner,p4-client,asset-guard,auto-checkout,changelist,config}.ts
+  src/{index,types,ztag,p4-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,changelist,config}.ts
   src/testing/mock-runner.ts
-  test/{ztag,mock-runner,p4-client,asset-guard,auto-checkout,config}.test.ts
+  test/{ztag,mock-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,config}.test.ts
 packages/mcp-server/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,server,tools,core-factory,mock-depot}.ts
-  test/{tools,integration,core-factory}.test.ts
+  src/{index,http,server,host-service,host-cli,tools,core-factory,mock-depot,asset-dependency-provider}.ts
+  test/{tools,integration,host-service,core-factory,asset-dependency-provider}.test.ts
 packages/web/
   package.json  vite.config.ts  index.html
   src/{App,diff,styles}.ts(x)
-  src/components/*.tsx  src/demo/*.ts(x)
+  src/components/*.tsx  src/demo/*.ts(x)  src/backend/*.ts
+hosts/
+  p4v/  unreal/  maya/
 examples/
   claude-code.md  cursor.mcp.json  codex.config.toml
 ```
@@ -440,3 +578,5 @@ examples/
 5. The browser demo builds without Node polyfills, supports checkout/revert and
    changelist review, reports async failures visibly, and deploys via Pages.
 6. No automated path submits a real changelist; submission remains human-owned.
+7. The localhost host serves the same web build to P4V, Unreal, and Maya, and
+   shared backend tests cover connection, workspace, asset, review, and errors.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FileDiff, GitPullRequest, LoaderCircle } from "lucide-react";
 import { operationKey, useDemo } from "../demo/useDemo.js";
-import type { ReviewData } from "../demo/store.js";
+import type { ReviewData } from "../backend/types.js";
 import { DiffView } from "./DiffView.js";
 
 export function ReviewView() {

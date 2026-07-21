@@ -12,6 +12,8 @@ export interface P4RunOptions {
   cwd?: string;
   input?: string;
   env?: Record<string, string>;
+  /** Disable the runner's default `-ztag` prefix for native text output. */
+  tagged?: boolean;
 }
 
 export interface P4Runner {
@@ -34,7 +36,8 @@ export class ExecaP4Runner implements P4Runner {
 
   async run(args: string[], opts?: P4RunOptions): Promise<P4Result> {
     try {
-      const result = await execa(this.#p4Path, ["-ztag", ...args], {
+      const commandArgs = opts?.tagged === false ? args : ["-ztag", ...args];
+      const result = await execa(this.#p4Path, commandArgs, {
         input: opts?.input,
         cwd: opts?.cwd,
         env: { ...this.#env, ...opts?.env },

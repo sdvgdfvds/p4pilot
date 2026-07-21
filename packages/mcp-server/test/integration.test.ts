@@ -3,17 +3,20 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   DEFAULT_ASSET_GUARD_CONFIG,
   P4Client,
+  StaticAssetDependencyProvider,
   type P4PilotConfig,
 } from "@p4pilot/core";
 import { MockP4Runner } from "@p4pilot/core/testing";
 import { describe, expect, it } from "vitest";
 
 import { createServer } from "../src/server.js";
+import { UnavailableAssetDependencyProvider } from "../src/asset-dependency-provider.js";
 
 const config: P4PilotConfig = {
   p4Path: "p4",
   mock: true,
   assetGuard: DEFAULT_ASSET_GUARD_CONFIG,
+  assetDependencies: {},
   defaultChangelistPrefix: "[p4pilot] ",
   env: {},
 };
@@ -32,13 +35,41 @@ const seed = () =>
       },
     ],
     changelists: [],
+    shelvedChangelists: [
+      {
+        change: "814",
+        description: "shelved integration review",
+        user: "alice",
+        client: "ws",
+        files: [
+          {
+            depotFile: "//depot/a.c",
+            action: "edit",
+            rev: 1,
+            type: "text",
+            diff: "--- //depot/a.c#1\n+++ //depot/a.c@=814\n@@ -1 +1 @@\n-old\n+new",
+          },
+        ],
+      },
+    ],
   });
 
-async function connectClient(runner: MockP4Runner): Promise<Client> {
+async function connectClient(
+  runner: MockP4Runner,
+  dependencyProvider = new StaticAssetDependencyProvider("integration", [
+    {
+      path: "/Game/Hero",
+      dependencies: ["/Game/Mesh"],
+      referencers: [],
+    },
+    { path: "/Game/Mesh", dependencies: [], referencers: ["/Game/Hero"] },
+  ]),
+): Promise<Client> {
   const server = createServer({
     client: new P4Client(runner),
     config,
     search: async () => [],
+    assetDependencies: dependencyProvider,
   });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -61,16 +92,23 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_smart_edit",
         "p4_edit",
         "p4_add",
+        "p4_delete",
         "p4_revert",
+        "p4_sync",
+        "p4_reopen",
+        "p4_where",
         "p4_changelist_create",
         "p4_changelist_list",
         "p4_describe",
         "p4_review",
+        "p4_shelved_review",
         "p4_asset_info",
+        "p4_asset_dependencies",
         "p4_filelog",
         "p4_search",
       ]),
     );
+    expect(tools).toHaveLength(18);
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {
@@ -84,6 +122,76 @@ describe("mcp-server integration (InMemoryTransport)", () => {
       runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened
         ?.action,
     ).toBe("edit");
+  });
+
+  it("routes shelved review without changing workspace state", async () => {
+    const runner = seed();
+    const before = structuredClone(runner.state.files);
+    const client = await connectClient(runner);
+    const result = await client.callTool({
+      name: "p4_shelved_review",
+      arguments: { change: "814" },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("Shelved review of change 814"),
+        }),
+      ]),
+    );
+    expect(runner.state.files).toEqual(before);
+  });
+
+  it("routes asset dependency queries through the injected provider", async () => {
+    const client = await connectClient(seed());
+    const result = await client.callTool({
+      name: "p4_asset_dependencies",
+      arguments: { path: "/Game/Hero", direction: "dependencies", depth: 1 },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("dependency: /Game/Mesh"),
+        }),
+      ]),
+    );
+  });
+
+  it("reports asset dependencies as unavailable when UE export is not configured", async () => {
+    const client = await connectClient(
+      seed(),
+      new UnavailableAssetDependencyProvider(),
+    );
+    const result = await client.callTool({
+      name: "p4_asset_dependencies",
+      arguments: { path: "/Game/Hero" },
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("ASSET_DEPENDENCIES_UNAVAILABLE"),
+        }),
+      ]),
+    );
+  });
+
+  it("returns a typed tool error when a changelist has no shelves", async () => {
+    const client = await connectClient(seed());
+    const result = await client.callTool({
+      name: "p4_shelved_review",
+      arguments: { change: "999" },
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("P4_COMMAND_FAILED"),
+        }),
+      ]),
+    );
   });
 
   it("routes edit, revert, and add through MCP schemas", async () => {
@@ -115,6 +223,49 @@ describe("mcp-server integration (InMemoryTransport)", () => {
     ).toEqual({
       action: "add",
       change: "901",
+    });
+  });
+
+  it("routes delete, sync, reopen, and where through MCP schemas", async () => {
+    const runner = seed();
+    const client = await connectClient(runner);
+
+    const whereResult = await client.callTool({
+      name: "p4_where",
+      arguments: { path: "/ws/a.c" },
+    });
+    expect(whereResult.isError).not.toBe(true);
+    expect(whereResult.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: expect.stringContaining("//depot/a.c"),
+        }),
+      ]),
+    );
+
+    const syncResult = await client.callTool({
+      name: "p4_sync",
+      arguments: { paths: ["/ws/a.c"] },
+    });
+    expect(syncResult.isError).not.toBe(true);
+
+    await client.callTool({
+      name: "p4_edit",
+      arguments: { paths: ["/ws/a.c"] },
+    });
+    await client.callTool({
+      name: "p4_reopen",
+      arguments: { paths: ["/ws/a.c"], changelist: "904" },
+    });
+    expect(runner.state.files[0]!.opened?.change).toBe("904");
+
+    await client.callTool({
+      name: "p4_delete",
+      arguments: { paths: ["/ws/a.c"], changelist: "905" },
+    });
+    expect(runner.state.files[0]!.opened).toEqual({
+      action: "delete",
+      change: "905",
     });
   });
 
