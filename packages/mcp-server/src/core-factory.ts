@@ -1,8 +1,13 @@
 import {
+  DEFAULT_SAFETY_POLICY,
   ExecaP4Runner,
   loadConfig,
+  MemoryAuditSink,
   P4Client,
+  READ_ONLY_POLICY,
+  RESTRICTED_AGENT_POLICY,
   type P4PilotConfig,
+  type SafetyPolicy,
 } from "@p4pilot/core";
 import { MockP4Runner } from "@p4pilot/core/testing";
 
@@ -12,6 +17,8 @@ export interface BuiltCore {
   client: P4Client;
   config: P4PilotConfig;
   mock: boolean;
+  policy: SafetyPolicy;
+  audit: MemoryAuditSink;
 }
 
 function cleanEnv(env: P4PilotConfig["env"]): Record<string, string> {
@@ -23,6 +30,26 @@ function cleanEnv(env: P4PilotConfig["env"]): Record<string, string> {
 }
 
 /**
+ * Resolve {@link SafetyPolicy} from `P4PILOT_POLICY`.
+ * Accepted values: `default` (default), `restricted-agent`, `read-only`.
+ */
+export function resolveSafetyPolicy(env: NodeJS.ProcessEnv): SafetyPolicy {
+  const raw = (env.P4PILOT_POLICY ?? "default").trim().toLowerCase();
+  switch (raw) {
+    case "default":
+      return DEFAULT_SAFETY_POLICY;
+    case "restricted-agent":
+      return RESTRICTED_AGENT_POLICY;
+    case "read-only":
+      return READ_ONLY_POLICY;
+    default:
+      throw new Error(
+        `unknown P4PILOT_POLICY "${env.P4PILOT_POLICY}" (expected default | restricted-agent | read-only)`,
+      );
+  }
+}
+
+/**
  * Build the core client from CLI args + environment. `--mock` (or
  * `P4PILOT_MOCK=1`) uses an in-memory fake depot so the server runs with no
  * Perforce installed; otherwise a real `p4` runner is used.
@@ -30,15 +57,19 @@ function cleanEnv(env: P4PilotConfig["env"]): Record<string, string> {
 export function buildCore(argv: string[], env: NodeJS.ProcessEnv): BuiltCore {
   const config = loadConfig({ env });
   const mock = config.mock || argv.includes("--mock");
+  const policy = resolveSafetyPolicy(env);
+  const audit = new MemoryAuditSink();
   if (mock) {
     return {
       client: new P4Client(new MockP4Runner(createMockDepot())),
       config,
       mock: true,
+      policy,
+      audit,
     };
   }
   const client = new P4Client(
     new ExecaP4Runner({ p4Path: config.p4Path, env: cleanEnv(config.env) }),
   );
-  return { client, config, mock: false };
+  return { client, config, mock: false, policy, audit };
 }

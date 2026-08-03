@@ -2,6 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   DEFAULT_ASSET_GUARD_CONFIG,
+  DEFAULT_SAFETY_POLICY,
+  MemoryAuditSink,
   P4Client,
   StaticAssetDependencyProvider,
   type P4PilotConfig,
@@ -70,6 +72,8 @@ async function connectClient(
     config,
     search: async () => [],
     assetDependencies: dependencyProvider,
+    policy: DEFAULT_SAFETY_POLICY,
+    audit: new MemoryAuditSink(),
   });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -106,9 +110,11 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_asset_dependencies",
         "p4_filelog",
         "p4_search",
+        "p4_audit_tail",
       ]),
     );
-    expect(tools).toHaveLength(18);
+    expect(names).not.toContain("p4_submit");
+    expect(tools).toHaveLength(19);
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {

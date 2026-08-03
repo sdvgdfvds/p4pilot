@@ -6,7 +6,7 @@ import { createNodeSearcher } from "./searcher.js";
 import { createServer } from "./server.js";
 
 async function main(): Promise<void> {
-  const { client, config, mock } = buildCore(
+  const { client, config, mock, policy, audit } = buildCore(
     process.argv.slice(2),
     process.env,
   );
@@ -15,6 +15,9 @@ async function main(): Promise<void> {
     config,
     search: createNodeSearcher(client),
     assetDependencies: createAssetDependencyProvider(config, { mock }),
+    policy,
+    audit,
+    actor: process.env.P4PILOT_ACTOR ?? process.env.P4USER,
   });
   await server.connect(new StdioServerTransport());
 }

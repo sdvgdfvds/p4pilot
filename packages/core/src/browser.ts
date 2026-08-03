@@ -7,6 +7,8 @@ export * from "./asset-guard.js";
 export * from "./asset-dependencies.js";
 export * from "./auto-checkout.js";
 export * from "./changelist.js";
+export * from "./policy.js";
+export * from "./audit.js";
 export { MockP4Runner } from "./testing/mock-runner.js";
 export type { FakeDepotState, FakeFile } from "./testing/mock-runner.js";
 export type { P4Runner, P4Result, P4RunOptions } from "./p4-runner.js"; // type-only → erased

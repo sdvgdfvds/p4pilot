@@ -159,7 +159,8 @@ export type P4PilotErrorCode =
   | "NO_SHELVED_FILES"   // successful describe response had no shelves
   | "ASSET_DEPENDENCIES_UNAVAILABLE" // no valid UE Asset Registry provider
   | "ASSET_NOT_FOUND"     // requested package absent from registry export
-  | "INVALID_INPUT";
+  | "INVALID_INPUT"
+  | "POLICY_DENIED";     // SafetyPolicy rejected the requested action
 ```
 
 ### 4.4 `P4Client` — `src/p4-client.ts`
@@ -370,7 +371,8 @@ export function loadConfig(opts?: {
 ### 4.9 `src/index.ts`
 
 Barrel export of the public API: runner interface + both runners, `P4Client`,
-asset-guard, auto-checkout, changelist helpers, config, types, `P4PilotError`.
+asset-guard, auto-checkout, changelist helpers, config, types, `P4PilotError`,
+safety policy, and audit.
 
 ### 4.10 Asset dependencies — `src/asset-dependencies.ts`
 
@@ -416,6 +418,154 @@ cycles, missing records, depth cutoffs, and the Asset Registry's inability to
 observe references created only at runtime. `StaticAssetDependencyProvider`
 supports deterministic offline fixtures.
 
+### 4.11 Safety policy — `src/policy.ts`
+
+In-process allow/deny gate for agent-facing actions. This is **tool policy**,
+not Helix Core authorization: an agent that can run an unrestricted shell with
+valid P4 credentials can still call `p4` directly and bypass p4pilot. Production
+deployments must pair this layer with a restricted P4 user and server-side
+protections (see `docs/SECURITY.md`).
+
+**Submit is always denied** (`denySubmit` behavior is hard-coded): `checkPolicy`
+rejects `action === "submit"` even if a custom policy listed it. Shipped presets
+never include `submit` in `allowedActions`. There is still **no** `p4_submit`
+MCP tool.
+
+```ts
+/**
+ * High-level actions policies allow or deny. MCP tools map onto these
+ * (e.g. `p4_smart_edit` → `edit`; `p4_review` / `p4_shelved_review` → `read`).
+ * `submit` is never exposed as a tool but remains a first-class action so
+ * policy checks always reject it.
+ */
+export type PolicyAction =
+  | "read"
+  | "edit"
+  | "add"
+  | "delete"
+  | "revert"
+  | "sync"
+  | "reopen"
+  | "changelist_create"
+  | "changelist_list"
+  | "submit"
+  | "audit_tail";
+
+export interface SafetyPolicy {
+  /** Stable id: `default` | `restricted-agent` | `read-only`. */
+  name: string;
+  /** Actions this policy permits. Anything not listed is denied. */
+  allowedActions: ReadonlySet<PolicyAction>;
+}
+
+export interface PolicyCheckContext {
+  paths?: string[];
+  changelist?: string;
+}
+
+export interface PolicyCheckResult {
+  allowed: boolean;
+  action: PolicyAction;
+  reason?: string;
+}
+
+/** Full workspace tooling except submit. */
+export const DEFAULT_SAFETY_POLICY: SafetyPolicy;
+
+/**
+ * Restricted agent: prepare edits/changelists; no delete, sync, or submit.
+ * Allows: read, edit, add, revert, reopen, changelist_create, changelist_list,
+ * audit_tail.
+ */
+export const RESTRICTED_AGENT_POLICY: SafetyPolicy;
+
+/**
+ * Inspection only: read, changelist_list, audit_tail.
+ * (Review tools map to `read` and therefore remain allowed.)
+ */
+export const READ_ONLY_POLICY: SafetyPolicy;
+
+export function checkPolicy(
+  policy: SafetyPolicy,
+  action: PolicyAction,
+  context?: PolicyCheckContext,
+): PolicyCheckResult;
+
+/**
+ * Throws `P4PilotError` with code `POLICY_DENIED` when disallowed.
+ * No-op when allowed.
+ */
+export function assertPolicyAllowed(
+  policy: SafetyPolicy,
+  action: PolicyAction,
+  context?: PolicyCheckContext,
+): void;
+```
+
+Preset summary:
+
+| Preset                    | `name`             | Allows (conceptually)             | Always denies              |
+| ------------------------- | ------------------ | --------------------------------- | -------------------------- |
+| `DEFAULT_SAFETY_POLICY`   | `default`          | All non-submit actions            | `submit`                   |
+| `RESTRICTED_AGENT_POLICY` | `restricted-agent` | prepare + review (no delete/sync) | `submit`, `delete`, `sync` |
+| `READ_ONLY_POLICY`        | `read-only`        | read / list / audit_tail          | all writes + `submit`      |
+
+### 4.12 Audit — `src/audit.ts`
+
+In-process event stream for tool invocations (deny / success / error). Core
+provides types, `createAuditEvent`, and `MemoryAuditSink`; hosts may implement
+`AuditSink`.
+
+```ts
+export type AuditDecision = "deny" | "success" | "error";
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string; // ISO-8601
+  tool: string; // MCP tool name, e.g. "p4_edit"
+  action: PolicyAction;
+  decision: AuditDecision;
+  actor?: string;
+  paths?: string[];
+  changelist?: string;
+  durationMs?: number;
+  message?: string;
+}
+
+export interface AuditSink {
+  record(event: AuditEvent): void;
+  /** Most recent events, newest last. Defaults to all retained events. */
+  tail(limit?: number): AuditEvent[];
+}
+
+export interface CreateAuditEventInput {
+  tool: string;
+  action: PolicyAction;
+  decision: AuditDecision;
+  actor?: string;
+  paths?: string[];
+  changelist?: string;
+  durationMs?: number;
+  message?: string;
+  id?: string;
+  timestamp?: string;
+}
+
+export function createAuditEvent(input: CreateAuditEventInput): AuditEvent;
+
+/** In-memory ring buffer (default max 1000). Not durable across restarts. */
+export class MemoryAuditSink implements AuditSink {
+  constructor(maxEvents?: number); // default 1_000
+  record(event: AuditEvent): void;
+  tail(limit?: number): AuditEvent[];
+  clear(): void;
+}
+```
+
+`createAuditEvent` fills `id` and `timestamp` when omitted. Audit is for
+accountability and demos — not a cryptographic ledger and not a substitute for
+Helix journal / server logs.
+
 ## 5. Package: `@p4pilot/mcp-server`
 
 Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
@@ -435,29 +585,78 @@ Windows demo controller **`p4pilot-demo`**.
   by the bundled `createMockDepot()` module so the server is demoable with zero
   Perforce setup. Each server receives independent mutable state.
 - Otherwise construct `ExecaP4Runner` from `loadConfig()`.
+- `P4PILOT_POLICY=default|restricted-agent|read-only` selects the in-process
+  `SafetyPolicy` attached to `ToolContext` (default: `default` →
+  `DEFAULT_SAFETY_POLICY` via `resolveSafetyPolicy`). Unknown values throw at
+  startup: `unknown P4PILOT_POLICY "…" (expected default | restricted-agent | read-only)`.
+
+### 5.1.1 `ToolContext` + policy/audit wiring
+
+Handlers receive a shared context object (not only `P4Client`). The server
+always attaches policy + audit from `buildCore`:
+
+```ts
+export interface ToolContext {
+  client: P4Client;
+  config: P4PilotConfig;
+  search: Searcher;
+  assetDependencies: AssetDependencyProvider;
+  policy: SafetyPolicy;
+  audit: AuditSink;
+  actor?: string;
+}
+```
+
+Every registered tool runs through `withPolicyAndAudit` (`src/safe-tool.ts`):
+
+1. `checkPolicy(ctx.policy, action, { paths, changelist })` before the handler.
+2. On deny → `audit.record(… decision: "deny")` and tool error
+   `p4pilot error [POLICY_DENIED]: …` (never uncaught).
+3. On allow → run handler; then `audit.record` with `success` or `error`
+   (and `durationMs`).
+
+Tool → `PolicyAction` mapping (representative):
+
+| Tools                                                                                                                                         | `PolicyAction`      |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `p4_status`, `p4_where`, `p4_describe`, `p4_review`, `p4_shelved_review`, `p4_asset_info`, `p4_asset_dependencies`, `p4_filelog`, `p4_search` | `read`              |
+| `p4_smart_edit`, `p4_edit`                                                                                                                    | `edit`              |
+| `p4_add`                                                                                                                                      | `add`               |
+| `p4_delete`                                                                                                                                   | `delete`            |
+| `p4_revert`                                                                                                                                   | `revert`            |
+| `p4_sync`                                                                                                                                     | `sync`              |
+| `p4_reopen`                                                                                                                                   | `reopen`            |
+| `p4_changelist_create`                                                                                                                        | `changelist_create` |
+| `p4_changelist_list`                                                                                                                          | `changelist_list`   |
+| `p4_audit_tail`                                                                                                                               | `audit_tail`        |
+
+No tool maps to `submit`.
 
 ### 5.2 Tools (each has a zod input schema; each returns structured text content)
 
-| Tool                    | Input                                      | Behavior                                                                          |
-| ----------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `p4_status`             | `{}`                                       | opened files + count summary                                                      |
-| `p4_smart_edit`         | `{ paths: string[], changelist?: string }` | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
-| `p4_edit`               | `{ paths: string[], changelist?: string }` | `client.edit`                                                                     |
-| `p4_add`                | `{ paths: string[], changelist?: string }` | `client.add`                                                                      |
-| `p4_delete`             | `{ paths: string[], changelist?: string }` | `client.deleteFiles`                                                              |
-| `p4_revert`             | `{ paths: string[] }`                      | `client.revert`                                                                   |
-| `p4_sync`               | `{ paths?: string[] }`                     | `client.sync`                                                                     |
-| `p4_reopen`             | `{ paths: string[], changelist: string }`  | `client.reopen`                                                                   |
-| `p4_where`              | `{ path: string }`                         | `client.where`                                                                    |
-| `p4_changelist_create`  | `{ description: string }`                  | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
-| `p4_changelist_list`    | `{ status?: "pending"                      | "submitted", max?: number }`                                                      | `client.changes` |
-| `p4_describe`           | `{ change: string, diff?: boolean }`       | `client.describe`                                                                 |
-| `p4_review`             | `{ change: string }`                       | pending workspace review via `describe` with `diff:true`                          |
-| `p4_shelved_review`     | `{ change: string }`                       | server-side shelved review via `client.describeShelved`; never changes workspace  |
-| `p4_asset_info`         | `{ path: string }`                         | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
-| `p4_asset_dependencies` | `{ path, direction?, depth? }`             | query injected UE Asset Registry provider; return links, missing assets, risks    |
-| `p4_search`             | `{ query: string, glob?: string }`         | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
-| `p4_filelog`            | `{ path: string, max?: number }`           | `client.filelog`                                                                  |
+| Tool                    | Input                                        | Behavior                                                                          |
+| ----------------------- | -------------------------------------------- | --------------------------------------------------------------------------------- |
+| `p4_status`             | `{}`                                         | opened files + count summary                                                      |
+| `p4_smart_edit`         | `{ paths: string[], changelist?: string }`   | `ensureOpenForEditMany`; returns per-file `CheckoutResult`, warns on binary edits |
+| `p4_edit`               | `{ paths: string[], changelist?: string }`   | `client.edit`                                                                     |
+| `p4_add`                | `{ paths: string[], changelist?: string }`   | `client.add`                                                                      |
+| `p4_delete`             | `{ paths: string[], changelist?: string }`   | `client.deleteFiles`                                                              |
+| `p4_revert`             | `{ paths: string[] }`                        | `client.revert`                                                                   |
+| `p4_sync`               | `{ paths?: string[] }`                       | `client.sync`                                                                     |
+| `p4_reopen`             | `{ paths: string[], changelist: string }`    | `client.reopen`                                                                   |
+| `p4_where`              | `{ path: string }`                           | `client.where`                                                                    |
+| `p4_changelist_create`  | `{ description: string }`                    | `client.newChangelist`, prefixing description with `defaultChangelistPrefix`      |
+| `p4_changelist_list`    | `{ status?: "pending"                        | "submitted", max?: number }`                                                      | `client.changes` |
+| `p4_describe`           | `{ change: string, diff?: boolean }`         | `client.describe`                                                                 |
+| `p4_review`             | `{ change: string }`                         | pending workspace review via `describe` with `diff:true`                          |
+| `p4_shelved_review`     | `{ change: string }`                         | server-side shelved review via `client.describeShelved`; never changes workspace  |
+| `p4_asset_info`         | `{ path: string }`                           | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
+| `p4_asset_dependencies` | `{ path, direction?, depth? }`               | query injected UE Asset Registry provider; return links, missing assets, risks    |
+| `p4_search`             | `{ query: string, glob?: string }`           | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
+| `p4_filelog`            | `{ path: string, max?: number }`             | `client.filelog`                                                                  |
+| `p4_audit_tail`         | `{ limit?: number }` (positive int, max 500) | `ctx.audit.tail(limit)` as pretty-printed JSON                                    |
+
+There is **no** `p4_submit` tool.
 
 ### 5.3 Errors
 
@@ -487,6 +686,13 @@ uses a bundled static graph. Without either source, the tool returns
 The MCP surface intentionally stops at pending and shelved changelists. It may
 create, populate, describe, and review a changelist, but it does not expose
 `p4 submit`. Submission remains a deliberate human action after review.
+
+**Dual control:** in-process `SafetyPolicy` always denies `submit` and the MCP
+surface has no submit tool — necessary but not sufficient. An agent with
+unrestricted shell access and valid P4 credentials can still invoke `p4 submit`
+outside p4pilot. Production and studio demos must also use a restricted Helix
+user and server-side submit deny (protections / permissions). See
+[`SECURITY.md`](./SECURITY.md).
 
 ### 5.7 Local host service
 
@@ -555,12 +761,12 @@ connects `HttpBackend` to the page's origin.
 ```
 packages/core/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,types,ztag,p4-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,changelist,config}.ts
+  src/{index,types,ztag,p4-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,changelist,config,policy,audit}.ts
   src/testing/mock-runner.ts
-  test/{ztag,mock-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,config}.test.ts
+  test/{ztag,mock-runner,p4-client,asset-guard,asset-dependencies,auto-checkout,config,policy,audit,policy-audit}.test.ts
 packages/mcp-server/
   package.json  tsconfig.json  tsup.config.ts
-  src/{index,http,server,host-service,host-cli,tools,core-factory,mock-depot,asset-dependency-provider}.ts
+  src/{index,http,server,host-service,host-cli,tools,safe-tool,core-factory,mock-depot,asset-dependency-provider}.ts
   test/{tools,integration,host-service,core-factory,asset-dependency-provider}.test.ts
 packages/web/
   package.json  vite.config.ts  index.html
@@ -570,6 +776,7 @@ hosts/
   p4v/  unreal/  maya/
 examples/
   claude-code.md  cursor.mcp.json  codex.config.toml
+  restricted-agent/
 ```
 
 ## 7. Acceptance criteria (MVP done)

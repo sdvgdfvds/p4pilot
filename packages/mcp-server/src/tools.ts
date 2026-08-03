@@ -7,10 +7,14 @@ import {
   resolveAssetDependencies,
   type AssetDependencyDirection,
   type AssetDependencyProvider,
+  type AuditSink,
   type P4Client,
   type P4PilotConfig,
+  type SafetyPolicy,
 } from "@p4pilot/core";
 import { z } from "zod";
+
+import { withPolicyAndAudit, type ToolPolicyMeta } from "./safe-tool.js";
 
 export interface SearchHit {
   file: string;
@@ -28,6 +32,9 @@ export interface ToolContext {
   config: P4PilotConfig;
   search: Searcher;
   assetDependencies: AssetDependencyProvider;
+  policy: SafetyPolicy;
+  audit: AuditSink;
+  actor?: string;
 }
 
 export interface ToolResult {
@@ -58,6 +65,14 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
       `internal error: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+function guarded(
+  ctx: ToolContext,
+  meta: ToolPolicyMeta,
+  fn: () => Promise<ToolResult>,
+): Promise<ToolResult> {
+  return guard(() => withPolicyAndAudit(ctx, meta, fn));
 }
 
 // --- pure handlers (unit-tested directly) ---
@@ -357,7 +372,38 @@ export async function search(
   );
 }
 
+export async function auditTail(
+  ctx: ToolContext,
+  args: { limit?: number },
+): Promise<ToolResult> {
+  const events = ctx.audit.tail(args.limit);
+  return ok(JSON.stringify(events, null, 2));
+}
+
 // --- registration ---
+
+/** Tool names registered by {@link registerTools}. Exported for tests. */
+export const REGISTERED_TOOL_NAMES = [
+  "p4_status",
+  "p4_smart_edit",
+  "p4_edit",
+  "p4_add",
+  "p4_revert",
+  "p4_delete",
+  "p4_sync",
+  "p4_reopen",
+  "p4_where",
+  "p4_changelist_create",
+  "p4_changelist_list",
+  "p4_describe",
+  "p4_review",
+  "p4_shelved_review",
+  "p4_asset_info",
+  "p4_asset_dependencies",
+  "p4_filelog",
+  "p4_search",
+  "p4_audit_tail",
+] as const;
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {
   const paths = z.array(z.string()).min(1);
@@ -369,7 +415,8 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       title: "Perforce status",
       description: "List files currently open in the workspace.",
     },
-    () => guard(() => status(ctx)),
+    () =>
+      guarded(ctx, { tool: "p4_status", action: "read" }, () => status(ctx)),
   );
   server.registerTool(
     "p4_smart_edit",
@@ -379,7 +426,17 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         "Ensure the given files are open for edit (or add) before modifying them.",
       inputSchema: { paths, changelist },
     },
-    (args) => guard(() => smartEdit(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_smart_edit",
+          action: "edit",
+          paths: args.paths,
+          changelist: args.changelist,
+        },
+        () => smartEdit(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_edit",
@@ -388,7 +445,17 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Open files for edit.",
       inputSchema: { paths, changelist },
     },
-    (args) => guard(() => edit(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_edit",
+          action: "edit",
+          paths: args.paths,
+          changelist: args.changelist,
+        },
+        () => edit(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_add",
@@ -397,7 +464,17 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Open new files for add.",
       inputSchema: { paths, changelist },
     },
-    (args) => guard(() => add(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_add",
+          action: "add",
+          paths: args.paths,
+          changelist: args.changelist,
+        },
+        () => add(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_revert",
@@ -406,7 +483,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Revert opened files.",
       inputSchema: { paths: z.array(z.string()).min(1) },
     },
-    (args) => guard(() => revert(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_revert", action: "revert", paths: args.paths },
+        () => revert(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_delete",
@@ -415,7 +497,17 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Open tracked files for delete.",
       inputSchema: { paths, changelist },
     },
-    (args) => guard(() => deleteFiles(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_delete",
+          action: "delete",
+          paths: args.paths,
+          changelist: args.changelist,
+        },
+        () => deleteFiles(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_sync",
@@ -425,7 +517,10 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         "Sync the workspace or selected paths to the latest revision.",
       inputSchema: { paths: paths.optional() },
     },
-    (args) => guard(() => sync(ctx, args)),
+    (args) =>
+      guarded(ctx, { tool: "p4_sync", action: "sync", paths: args.paths }, () =>
+        sync(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_reopen",
@@ -434,7 +529,17 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Move opened files to a pending changelist.",
       inputSchema: { paths, changelist: z.string().min(1) },
     },
-    (args) => guard(() => reopen(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_reopen",
+          action: "reopen",
+          paths: args.paths,
+          changelist: args.changelist,
+        },
+        () => reopen(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_where",
@@ -443,7 +548,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Show the depot, client, and local path mapping for a file.",
       inputSchema: { path: z.string().min(1) },
     },
-    (args) => guard(() => where(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_where", action: "read", paths: [args.path] },
+        () => where(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_changelist_create",
@@ -452,7 +562,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Create a pending changelist with a description.",
       inputSchema: { description: z.string().min(1) },
     },
-    (args) => guard(() => changelistCreate(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_changelist_create", action: "changelist_create" },
+        () => changelistCreate(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_changelist_list",
@@ -464,7 +579,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         max: z.number().int().positive().optional(),
       },
     },
-    (args) => guard(() => changelistList(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_changelist_list", action: "changelist_list" },
+        () => changelistList(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_describe",
@@ -474,7 +594,16 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         "Show a changelist's metadata and files (optionally a diff).",
       inputSchema: { change: z.string(), diff: z.boolean().optional() },
     },
-    (args) => guard(() => describe(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_describe",
+          action: "read",
+          changelist: args.change,
+        },
+        () => describe(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_review",
@@ -483,7 +612,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Turn a changelist into a review-ready diff summary.",
       inputSchema: { change: z.string() },
     },
-    (args) => guard(() => review(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_review", action: "read", changelist: args.change },
+        () => review(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_shelved_review",
@@ -493,7 +627,16 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         "Review files shelved on the server without changing the workspace.",
       inputSchema: { change: z.string().min(1) },
     },
-    (args) => guard(() => shelvedReview(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_shelved_review",
+          action: "read",
+          changelist: args.change,
+        },
+        () => shelvedReview(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_asset_info",
@@ -503,7 +646,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         "Classify a file; for binary/large assets return metadata instead of bytes.",
       inputSchema: { path: z.string() },
     },
-    (args) => guard(() => assetInfo(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_asset_info", action: "read", paths: [args.path] },
+        () => assetInfo(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_asset_dependencies",
@@ -517,7 +665,16 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         depth: z.number().int().min(1).max(10).optional(),
       },
     },
-    (args) => guard(() => assetDependencies(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_asset_dependencies",
+          action: "read",
+          paths: [args.path],
+        },
+        () => assetDependencies(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_filelog",
@@ -529,7 +686,12 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         max: z.number().int().positive().optional(),
       },
     },
-    (args) => guard(() => filelog(ctx, args)),
+    (args) =>
+      guarded(
+        ctx,
+        { tool: "p4_filelog", action: "read", paths: [args.path] },
+        () => filelog(ctx, args),
+      ),
   );
   server.registerTool(
     "p4_search",
@@ -538,6 +700,24 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       description: "Text-search the workspace, skipping binary assets.",
       inputSchema: { query: z.string().min(1), glob: z.string().optional() },
     },
-    (args) => guard(() => search(ctx, args)),
+    (args) =>
+      guarded(ctx, { tool: "p4_search", action: "read" }, () =>
+        search(ctx, args),
+      ),
+  );
+  server.registerTool(
+    "p4_audit_tail",
+    {
+      title: "Audit log tail",
+      description:
+        "Return recent tool-invocation audit events recorded by this server process.",
+      inputSchema: {
+        limit: z.number().int().positive().max(500).optional(),
+      },
+    },
+    (args) =>
+      guarded(ctx, { tool: "p4_audit_tail", action: "audit_tail" }, () =>
+        auditTail(ctx, args),
+      ),
   );
 }

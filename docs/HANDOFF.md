@@ -6,6 +6,8 @@
 
 **线上 Demo**：<https://sdvgdfvds.github.io/p4pilot/>
 
+**当前分支**：`feat/agent-runtime-safety`（相对 `origin/main` 的 agent 运行时安全工作）
+
 ## 当前状态
 
 p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 P4V WebView
@@ -13,13 +15,33 @@ p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 
 准备公开包 `0.2.0` release candidate，具备完整的格式、lint、coverage、测试、
 构建和 npm pack 门禁。GitHub Actions CI 和 GitHub Pages 部署已启用。
 
-已交付内容：
+### 进行中：Agent runtime safety（本分支）
+
+目标：为 MCP / agent 运行时增加**进程内策略门闩 + 审计**，并写清安全边界诚实性
+（产品永不暴露 `p4_submit`；带 shell + 凭据的 agent 仍可绕过；生产必须叠加
+受限 P4 用户与服务端 submit deny）。
+
+契约摘要（权威接口见 `docs/SPEC.md` §4.11–§4.12、§5.1.1、§5.2）：
+
+- `@p4pilot/core`：`src/policy.ts`（`SafetyPolicy`、三档预设、`checkPolicy` /
+  `assertPolicyAllowed`、硬拒绝 `submit`）、`src/audit.ts`（`AuditEvent` /
+  `AuditSink` / `MemoryAuditSink` / `createAuditEvent`）、`POLICY_DENIED`。
+- `@p4pilot/mcp-server`：`ToolContext.policy` + `audit`（必填）、`safe-tool`
+  `withPolicyAndAudit`、`resolveSafetyPolicy` / `P4PILOT_POLICY`、工具
+  `p4_audit_tail`；**仍无** `p4_submit`。
+- 文档：`docs/SECURITY.md`、`examples/restricted-agent/README.md`、本 HANDOFF /
+  PLAN / TOOLS / SPEC 已与契约对齐。
+
+代码与文档可能仍在同一分支并行完善；以 `docs/SPEC.md` §4.11–§4.12 / §5.1.1
+为接口权威。测试继续全离线 `MockP4Runner`，不要发明契约外 API。
+
+已交付内容（`main` / v0.2.0 基线 + 本分支安全层）：
 
 - `@p4pilot/core`：Perforce runner、ztag parser、typed client、auto-checkout、
   asset guard、shelved review、Unreal asset dependency traversal、changelist
-  helpers，以及离线 `MockP4Runner`。
-- `@p4pilot/mcp-server`：18 个 MCP 工具，并提供 loopback-only
-  `p4pilot-host`；`--mock` 模式无需 Perforce。
+  helpers、safety policy、audit，以及离线 `MockP4Runner`。
+- `@p4pilot/mcp-server`：19 个 MCP 工具（含 `p4_audit_tail`），并提供
+  loopback-only `p4pilot-host`；`--mock` 模式无需 Perforce。
 - npm：registry 当前公开版本仍为 `@p4pilot/core@0.1.1` 与
   `@p4pilot/mcp-server@0.1.1`；`0.2.0` manifests 已准备，发布需要 npm 账号授权。
 - `@p4pilot/web`：统一的 mock/HTTP backend 界面，包含工作区仪表盘、smart
@@ -87,8 +109,11 @@ PR #5、#6、#7 已合并到 `main`。`release/v0.2.0` 只更新公开包版本�
 
 ## 后续产品化方向
 
-- 增加受限 Perforce 演示用户与服务端 Submit 禁止规则。
-- 增加操作审计日志和审批机制。
+- **（本分支）** 落地 agent-runtime-safety 实现与测试；文档契约已写在
+  `docs/SPEC.md` / `docs/SECURITY.md` / `docs/PLAN.md` Milestone。
+- 在演示 p4d 上配置受限 Perforce 用户与服务端 Submit 禁止规则（与
+  `examples/restricted-agent` 对齐）。
+- 可选：持久化 / 可插拔 `AuditSink`、审批工作流（超出当前 Memory + tail 范围）。
 - 交付真实 Unreal Asset Registry 导出 commandlet/脚本。
 - 在装有 Unreal Editor 和 Maya 的授权工作站上完成真实宿主验证。
 - 改善 MCP/HTTP 身份验证和团队部署方案。

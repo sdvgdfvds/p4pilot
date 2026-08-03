@@ -2,12 +2,14 @@
 
 > p4pilot intentionally has no `p4_submit` tool. It prepares and reviews pending
 > or shelved changelists; a human submits them through the normal Perforce
-> workflow.
+> workflow. In-process `SafetyPolicy` (env `P4PILOT_POLICY`) can further narrow
+> which tools an agent may call; see [`SECURITY.md`](./SECURITY.md).
 
-`@p4pilot/mcp-server` exposes **18 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **19 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
-(see [Error codes](#error-codes)).
+(see [Error codes](#error-codes)). Mutating tools run a policy check and append
+an audit event when `ToolContext.policy` / `ToolContext.audit` are configured.
 
 All examples below are **real output**, captured by driving the shipped server
 binary in mock mode:
@@ -374,6 +376,63 @@ text files are searched.
 
 ---
 
+## `p4_audit_tail`
+
+Return recent in-process audit events recorded by the server's `AuditSink`
+(default: `MemoryAuditSink` from `buildCore`). Useful in demos and debugging to
+show which policy-gated tool actions were allowed or denied.
+
+This is **not** Helix Core server audit and is not tamper-evident. Events exist
+only for the lifetime of the MCP process (unless a custom sink is injected).
+
+**Input:** `{ limit?: number }` — positive integer, max **500**; omit to return
+all retained events (sink default capacity is 1000).
+
+```text
+$ p4_audit_tail { "limit": 2 }
+[
+  {
+    "id": "audit-…",
+    "timestamp": "2026-08-03T12:00:00.000Z",
+    "tool": "p4_smart_edit",
+    "action": "edit",
+    "decision": "success",
+    "paths": ["/depot/game/src/main.cpp"],
+    "durationMs": 12
+  },
+  {
+    "id": "audit-…",
+    "timestamp": "2026-08-03T12:00:01.000Z",
+    "tool": "p4_delete",
+    "action": "delete",
+    "decision": "deny",
+    "paths": ["/depot/game/src/obsolete.cpp"],
+    "message": "action \"delete\" is denied by policy \"restricted-agent\""
+  }
+]
+```
+
+Empty sink (no prior tool calls in this process):
+
+```text
+$ p4_audit_tail {}
+[]
+```
+
+Under `P4PILOT_POLICY=restricted-agent`, a denied mutator looks like:
+
+```text
+$ p4_delete { "paths": ["/depot/game/src/obsolete.cpp"] }
+p4pilot error [POLICY_DENIED]: action "delete" is denied by policy "restricted-agent"
+```
+
+`p4_sync` is also denied under `restricted-agent`. `p4_revert` remains allowed
+so agents can undo their own opens. `P4PILOT_POLICY=read-only` denies all write
+actions (`edit` / `add` / `delete` / …) while still allowing status, review,
+describe, and `p4_audit_tail`.
+
+---
+
 ## Error codes
 
 Tool errors are formatted as `p4pilot error [CODE]: message`. Codes:
@@ -388,6 +447,7 @@ Tool errors are formatted as `p4pilot error [CODE]: message`. Codes:
 | `ASSET_DEPENDENCIES_UNAVAILABLE` | UE Asset Registry export is absent or invalid          |
 | `ASSET_NOT_FOUND`                | requested Unreal package is absent from the export     |
 | `INVALID_INPUT`                  | the arguments failed validation                        |
+| `POLICY_DENIED`                  | `SafetyPolicy` rejected the requested tool action      |
 
 Example:
 

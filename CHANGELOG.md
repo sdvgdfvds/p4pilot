@@ -6,6 +6,14 @@ All notable changes to p4pilot are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Safety policy profiles (`default`, `restricted-agent`, `read-only`) with hard
+  deny of `submit` and optional binary-asset open protection.
+- In-process audit log (`MemoryAuditSink`) and MCP tool `p4_audit_tail`.
+- Env `P4PILOT_POLICY` / `P4PILOT_ACTOR` for agent runtime safety configuration.
+- Security model doc (`docs/SECURITY.md`) and restricted-agent example profile.
+
 ## [0.2.0] - 2026-08-03
 
 ### Added

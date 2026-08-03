@@ -410,3 +410,76 @@ and a registry array.
 ## Discovered follow-ups
 
 _(Agents: append out-of-scope findings here instead of implementing them.)_
+
+---
+
+## Milestone: Agent runtime safety
+
+Branch: `feat/agent-runtime-safety`. Authoritative interfaces: `docs/SPEC.md`
+§4.11–§4.12, §5.1.1, §5.2 (`p4_audit_tail`). Security narrative:
+`docs/SECURITY.md`.
+
+**Constraints:**
+
+- Still **no** `p4_submit` tool or host submit route.
+- Submit is always denied by `checkPolicy` (hard product boundary).
+- Document honesty: shell + valid high-privilege creds bypass p4pilot; production
+  needs restricted P4 user + server-side submit deny.
+- TDD offline only (`MockP4Runner` / `MemoryAuditSink`). Do not invent APIs
+  outside the SPEC contract.
+
+### Task A: Core safety policy
+
+**Files:** `packages/core/src/policy.ts`, `packages/core/test/policy.test.ts` /
+`policy-audit.test.ts`; export from `src/index.ts`; `POLICY_DENIED` on
+`P4PilotErrorCode`.
+
+- [x] **Step 1–3** — `PolicyAction`, `SafetyPolicy`, three presets,
+      `checkPolicy` / `assertPolicyAllowed` per SPEC §4.11 (submit hard-deny;
+      restricted denies delete/sync; read-only is inspection-only).
+- [ ] **Step 4** — Align any divergent unit tests with SPEC; typecheck + tests
+      green; commit if not already: `feat(core): add SafetyPolicy presets and POLICY_DENIED`.
+
+### Task B: Core audit
+
+**Files:** `packages/core/src/audit.ts`, tests; barrel export.
+
+- [x] **Step 1–3** — `AuditEvent`, `AuditSink.record`/`tail`, `MemoryAuditSink`,
+      `createAuditEvent` per SPEC §4.12.
+- [ ] **Step 4** — Ensure tests use `record`/`tail` (not obsolete names);
+      commit if needed: `feat(core): add AuditEvent sink and MemoryAuditSink`.
+
+### Task C: MCP ToolContext + tool gates
+
+**Files:** `packages/mcp-server/src/{tools,safe-tool,core-factory}.ts`, tests.
+
+- [x] **Step 1–3** — `ToolContext.policy` + `audit` required; `withPolicyAndAudit`
+      on every tool; `P4PILOT_POLICY` via `resolveSafetyPolicy`.
+- [ ] **Step 4** — Coverage for deny/success audit paths and unknown policy env;
+      commit if needed: `feat(mcp): enforce SafetyPolicy and audit on tools`.
+
+### Task D: `p4_audit_tail` tool
+
+**Files:** `tools.ts` registration + tests.
+
+- [x] **Step 1–3** — Tool registered; returns `JSON.stringify(events, null, 2)`;
+      input `limit` positive int max 500; still no `p4_submit`.
+- [ ] **Step 4** — Integration asserts `listTools` includes `p4_audit_tail`;
+      commit if needed: `feat(mcp): add p4_audit_tail tool`.
+
+### Task E: Docs & example (this milestone’s doc track)
+
+- [x] `docs/SPEC.md` — §4.11 policy, §4.12 audit, ToolContext, `p4_audit_tail`.
+- [x] `docs/SECURITY.md` — product boundary, dual control, audit, shell bypass,
+      studio embed recommendation.
+- [x] `docs/HANDOFF.md` — branch status for agent-runtime-safety.
+- [x] `docs/PLAN.md` — this milestone checklist.
+- [x] `docs/TOOLS.md` — `p4_audit_tail` + `POLICY_DENIED`.
+- [x] `examples/restricted-agent/README.md` — restricted profile + restricted
+      P4 user (conceptual).
+
+### Definition of done (implementation)
+
+- [ ] Core + MCP tests fully green offline (including policy/audit suites).
+- [ ] No `p4_submit` anywhere in the MCP/HTTP surface.
+- [x] SPEC, SECURITY, TOOLS, and restricted-agent example match shipped names.

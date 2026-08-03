@@ -1,6 +1,8 @@
 import {
   StaticAssetDependencyProvider,
   DEFAULT_ASSET_GUARD_CONFIG,
+  DEFAULT_SAFETY_POLICY,
+  MemoryAuditSink,
   P4Client,
   type P4PilotConfig,
 } from "@p4pilot/core";
@@ -98,6 +100,8 @@ function makeCtx(
     config,
     search: searcher,
     assetDependencies: dependencyProvider,
+    policy: DEFAULT_SAFETY_POLICY,
+    audit: new MemoryAuditSink(),
   };
 }
 

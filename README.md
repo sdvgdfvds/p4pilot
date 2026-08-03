@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-119%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-145%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MCP, browser UI, and host integrations ready.** Core + MCP server
-> are fully tested — 119 tests, green in CI, and runnable today with zero
+> are fully tested — 145 tests, green in CI, and runnable today with zero
 > Perforce via `--mock`. The same UI can run as the live local workspace in P4V,
 > Unreal Editor, and Maya.
 >
@@ -55,7 +55,7 @@ edit	//depot/game/src/main.cpp (change 813)
 edit	//depot/game/Content/Hero.uasset (change 813)
 ```
 
-Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 18
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 19
 tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists
