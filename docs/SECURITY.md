@@ -22,10 +22,10 @@ public MCP surface.
 
 Agent safety needs **two** independent layers:
 
-| Layer                                            | What it is                                                                                                                                | What it stops                                                                                                                   |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Layer                                            | What it is                                                                                                                                                        | What it stops                                                                                                                         |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **Tool policy** (`@p4pilot/core` `SafetyPolicy`) | In-process allow/deny on MCP tool actions (`submit` always denied; presets via `P4PILOT_POLICY`; optional sandbox via `pathAllowlist` / `P4PILOT_PATH_ALLOWLIST`) | Misbehaving or over-eager agents calling p4pilot tools (e.g. delete/sync under `restricted-agent`, or edits outside a sandbox prefix) |
-| **Helix protections**                            | Restricted P4 user, group permissions, server-side **submit deny** (protections / triggers / permissions as your admin standard requires) | Any client that still holds tickets — including shell `p4 submit` outside p4pilot                                               |
+| **Helix protections**                            | Restricted P4 user, group permissions, server-side **submit deny** (protections / triggers / permissions as your admin standard requires)                         | Any client that still holds tickets — including shell `p4 submit` outside p4pilot                                                     |
 
 **Both** are required in production. Tool policy alone is not a security
 boundary against a full-privilege agent host.
@@ -35,13 +35,13 @@ boundary against a full-privilege agent host.
 `AuditSink` records recent policy decisions and tool attempts for demos,
 debugging, and light accountability:
 
-| Sink                  | When                                         |
-| --------------------- | -------------------------------------------- |
-| `MemoryAuditSink`     | Default (in-process ring buffer)             |
-| `JsonlFileAuditSink`  | When `P4PILOT_AUDIT_LOG=/path/to/file.jsonl` |
-| MCP `p4_audit_tail`   | Agent-readable tail of the process sink      |
+| Sink                  | When                                            |
+| --------------------- | ----------------------------------------------- |
+| `MemoryAuditSink`     | Default (in-process ring buffer)                |
+| `JsonlFileAuditSink`  | When `P4PILOT_AUDIT_LOG=/path/to/file.jsonl`    |
+| MCP `p4_audit_tail`   | Agent-readable tail of the process sink         |
 | MCP `p4_policy_info`  | Active `SafetyPolicy` snapshot (maps to `read`) |
-| HTTP `GET /api/audit` | Host UI / local tooling (loopback only)      |
+| HTTP `GET /api/audit` | Host UI / local tooling (loopback only)         |
 
 Audit is **not**:
 

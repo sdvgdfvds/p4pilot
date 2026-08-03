@@ -40,9 +40,7 @@ describe("Header policy status", () => {
 
   it("hides policy status when getPolicy fails with workspace load", async () => {
     const backend = new DemoStore() as P4PilotBackend;
-    vi.spyOn(backend, "getWorkspace").mockRejectedValue(
-      new Error("host down"),
-    );
+    vi.spyOn(backend, "getWorkspace").mockRejectedValue(new Error("host down"));
     render(
       <DemoProvider store={backend}>
         <Header />

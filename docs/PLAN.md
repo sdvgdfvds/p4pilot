@@ -529,7 +529,15 @@ already on the base branch). Keep CI useful and docs honest.
 ### Docs polish (this round)
 
 - [x] `CHANGELOG.md` [Unreleased]: policy presets, path allowlist, JSONL audit,
-      Audit UI, bench CI, Helix templates (no invented unmerged tools).
+      Audit UI, bench CI, Helix templates, `p4_policy_info`, `p4_shelve`,
+      host `/api/policy`.
 - [x] `README.md`: security/policy bullets; links to `docs/SECURITY.md` and
       `docs/BENCH.md`.
 - [x] This milestone checklist.
+
+### PR readiness (agent-runtime-safety → main)
+
+- [x] MCP tools: 21 registered; no `p4_submit` on MCP or HTTP surface.
+- [x] Offline tests green (198); `test:bench-safety` + coverage floors.
+- [x] SPEC / TOOLS / SECURITY / HANDOFF / CHANGELOG aligned to shipped names.
+- [x] Format / lint / typecheck / build clean before opening PR.

@@ -8,28 +8,35 @@ All notable changes to p4pilot are documented here. The format follows
 
 ### Added
 
-- Safety policy profiles (`default`, `restricted-agent`, `read-only`) with hard
-  deny of `submit` and optional binary-asset open protection.
+- **Agent runtime safety** — process-local `SafetyPolicy` presets (`default`,
+  `restricted-agent`, `read-only`) with hard deny of `submit` and optional
+  binary-asset open protection (`protectBinaryAssets`).
 - Optional `SafetyPolicy.pathAllowlist` and env `P4PILOT_PATH_ALLOWLIST` so
   agents can be limited to depot/workspace path prefixes.
 - In-process audit log (`MemoryAuditSink`) and MCP tool `p4_audit_tail`.
 - Durable JSONL audit sink (`JsonlFileAuditSink`) via `P4PILOT_AUDIT_LOG`.
-- HTTP host policy enforcement + `GET /api/audit` on loopback host.
-- Web **Audit** panel (Dashboard | Review | Audit) for recent policy/tool
-  decisions; demo mode seeds sample events offline.
-- Offline safety bench suite (`packages/mcp-server/test/bench-safety.test.ts`,
-  `docs/BENCH.md`).
-- Named package script `npm run test:bench-safety` and CI job `safety-bench`
-  (offline MockP4Runner; no real Perforce).
-- Env `P4PILOT_POLICY` / `P4PILOT_ACTOR` for agent runtime safety configuration.
-- Security model doc (`docs/SECURITY.md`) and restricted-agent example profile
-  with Helix protect/trigger templates under `examples/restricted-agent/helix/`.
+- MCP tool `p4_policy_info` — JSON snapshot of the active policy (maps to
+  `read`; available under every preset including `read-only`).
+- MCP tool `p4_shelve` + `P4Client.shelve` — shelf a pending changelist for
+  human review (policy action `shelve`; allowed under default/restricted,
+  denied under read-only). Still **no** `p4_submit`.
+- HTTP host: policy on mutations, `GET /api/audit`, `GET /api/policy`.
+- Web **Audit** panel (Dashboard | Review | Audit) and Header policy badge
+  (`submit blocked` + path allowlist summary); demo mode seeds offline data.
+- Offline safety bench (`packages/mcp-server/test/bench-safety.test.ts`,
+  `docs/BENCH.md`), script `npm run test:bench-safety`, CI job `safety-bench`.
+- Env `P4PILOT_POLICY` / `P4PILOT_ACTOR` for agent runtime configuration.
+- Security model doc (`docs/SECURITY.md`) and restricted-agent example with
+  Helix protect/trigger templates under `examples/restricted-agent/helix/`
+  plus `VERIFY.md` checklist.
 
 ### Changed
 
+- MCP surface grows from the 0.2.0 baseline to **21 tools** (adds audit tail,
+  policy info, shelve); product boundary remains: never expose submit.
 - Document Vitest global coverage floors (statements/lines/functions 80%,
-  branches 55%) in `CONTRIBUTING.md`; CI Node 22 step remains
-  `npm run test:coverage` and fails when thresholds are missed.
+  branches 55%) in `CONTRIBUTING.md`; CI Node 22 runs `npm run test:coverage`
+  and fails when thresholds are missed.
 
 ## [0.2.0] - 2026-08-03
 

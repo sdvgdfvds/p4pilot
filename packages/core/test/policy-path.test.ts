@@ -97,12 +97,12 @@ describe("pathAllowlist", () => {
 
   it("still checks paths when read provides them", () => {
     const policy = policyWithAllowlist();
-    expect(
-      checkPolicy(policy, "read", { paths: [ALLOWED_CPP] }).allowed,
-    ).toBe(true);
-    expect(
-      checkPolicy(policy, "read", { paths: [OUTSIDE_CPP] }).allowed,
-    ).toBe(false);
+    expect(checkPolicy(policy, "read", { paths: [ALLOWED_CPP] }).allowed).toBe(
+      true,
+    );
+    expect(checkPolicy(policy, "read", { paths: [OUTSIDE_CPP] }).allowed).toBe(
+      false,
+    );
   });
 
   it("normalizes backslash separators for prefix matching", () => {

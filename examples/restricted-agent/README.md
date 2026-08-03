@@ -84,13 +84,13 @@ Human submitters keep separate accounts that _can_ submit after review in P4V.
 
 ### Admin templates in this folder
 
-| File | Role |
-| ---- | ---- |
-| [`helix/protect.sample`](./helix/protect.sample) | Commented protections / permissions patterns (`ai-agents` / `p4pilot-agent`, write without submit) |
-| [`helix/triggers.sample`](./helix/triggers.sample) | Optional `change-submit` trigger table sketch (second layer) |
-| [`helix/check-submit-deny.sh`](./helix/check-submit-deny.sh) | Sample trigger body (bash) — decision dry-run; install help gated by env |
-| [`helix/check-submit-deny.ps1`](./helix/check-submit-deny.ps1) | Same for Windows trigger hosts |
-| [`VERIFY.md`](./VERIFY.md) | Real-demo verification checklist + **safe** vs forbidden commands |
+| File                                                           | Role                                                                                               |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [`helix/protect.sample`](./helix/protect.sample)               | Commented protections / permissions patterns (`ai-agents` / `p4pilot-agent`, write without submit) |
+| [`helix/triggers.sample`](./helix/triggers.sample)             | Optional `change-submit` trigger table sketch (second layer)                                       |
+| [`helix/check-submit-deny.sh`](./helix/check-submit-deny.sh)   | Sample trigger body (bash) — decision dry-run; install help gated by env                           |
+| [`helix/check-submit-deny.ps1`](./helix/check-submit-deny.ps1) | Same for Windows trigger hosts                                                                     |
+| [`VERIFY.md`](./VERIFY.md)                                     | Real-demo verification checklist + **safe** vs forbidden commands                                  |
 
 Scripts do **not** implement submit automation and will not rewrite production
 `p4 protect` / `p4 triggers` tables. Install guidance requires

@@ -108,8 +108,12 @@ Agent runtime safety (MCP + local host) layers on top of that boundary:
   `P4PILOT_POLICY` (submit is always hard-denied).
 - **Path allowlist** — optional `P4PILOT_PATH_ALLOWLIST` / `pathAllowlist` to
   keep agent work inside chosen depot or workspace prefixes.
+- **Shelve handoff** — `p4_shelve` prepares a shelf for human review; agents
+  never get a submit tool (`p4_policy_info` reports `submitAllowed: false`).
 - **Audit trail** — in-process events, optional JSONL file (`P4PILOT_AUDIT_LOG`),
   `p4_audit_tail`, host `GET /api/audit`, and the Web **Audit** tab.
+- **Visible policy** — host `GET /api/policy` + Header badge (policy name,
+  submit blocked, allowlist summary).
 - **Offline safety bench** — CI job + `npm run test:bench-safety` (MockP4Runner
   only; no real Perforce).
 

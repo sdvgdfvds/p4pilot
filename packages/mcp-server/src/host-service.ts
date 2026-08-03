@@ -192,9 +192,7 @@ export function toPolicyInfo(policy: SafetyPolicy) {
     allowedActions: [...policy.allowedActions],
     protectBinaryAssets: policy.protectBinaryAssets,
     pathAllowlist:
-      allowlist === undefined || allowlist.length === 0
-        ? null
-        : [...allowlist],
+      allowlist === undefined || allowlist.length === 0 ? null : [...allowlist],
     submitAllowed: false as const,
   };
 }

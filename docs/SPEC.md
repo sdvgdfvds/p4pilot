@@ -212,10 +212,7 @@ export class P4Client {
    * Shelve opened files on a pending changelist for human review.
    * Runs `p4 shelve -c <change> [paths…]`. Does **not** submit.
    */
-  shelve(
-    change: string,
-    opts?: { paths?: string[] },
-  ): Promise<ShelveResult>;
+  shelve(change: string, opts?: { paths?: string[] }): Promise<ShelveResult>;
 }
 
 export interface ShelveResult {
@@ -722,19 +719,19 @@ Every registered tool runs through `withPolicyAndAudit` (`src/safe-tool.ts`):
 
 Tool → `PolicyAction` mapping (representative):
 
-| Tools                                                                                                                                                                      | `PolicyAction`      |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Tools                                                                                                                                                           | `PolicyAction`      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | `p4_status`, `p4_where`, `p4_describe`, `p4_review`, `p4_shelved_review`, `p4_asset_info`, `p4_asset_dependencies`, `p4_filelog`, `p4_search`, `p4_policy_info` | `read`              |
-| `p4_smart_edit`, `p4_edit`                                                                                                                                                 | `edit`              |
-| `p4_add`                                                                                                                                                                   | `add`               |
-| `p4_delete`                                                                                                                                                                | `delete`            |
-| `p4_revert`                                                                                                                                                                | `revert`            |
-| `p4_sync`                                                                                                                                                                  | `sync`              |
-| `p4_reopen`                                                                                                                                                                | `reopen`            |
-| `p4_changelist_create`                                                                                                                                                     | `changelist_create` |
-| `p4_changelist_list`                                                                                                                                                       | `changelist_list`   |
-| `p4_shelve`                                                                                                                                                                | `shelve`            |
-| `p4_audit_tail`                                                                                                                                                            | `audit_tail`        |
+| `p4_smart_edit`, `p4_edit`                                                                                                                                      | `edit`              |
+| `p4_add`                                                                                                                                                        | `add`               |
+| `p4_delete`                                                                                                                                                     | `delete`            |
+| `p4_revert`                                                                                                                                                     | `revert`            |
+| `p4_sync`                                                                                                                                                       | `sync`              |
+| `p4_reopen`                                                                                                                                                     | `reopen`            |
+| `p4_changelist_create`                                                                                                                                          | `changelist_create` |
+| `p4_changelist_list`                                                                                                                                            | `changelist_list`   |
+| `p4_shelve`                                                                                                                                                     | `shelve`            |
+| `p4_audit_tail`                                                                                                                                                 | `audit_tail`        |
 
 No tool maps to `submit`. `p4_policy_info` intentionally maps to `read` (not a
 dedicated `policy_info` action) so every preset including `read-only` can

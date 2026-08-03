@@ -41,7 +41,16 @@ Returns the host's active `SafetyPolicy` as JSON:
 ```json
 {
   "name": "restricted-agent",
-  "allowedActions": ["read", "edit", "add", "revert", "reopen", "changelist_create", "changelist_list", "audit_tail"],
+  "allowedActions": [
+    "read",
+    "edit",
+    "add",
+    "revert",
+    "reopen",
+    "changelist_create",
+    "changelist_list",
+    "audit_tail"
+  ],
   "protectBinaryAssets": true,
   "pathAllowlist": ["//depot/game/src"],
   "submitAllowed": false

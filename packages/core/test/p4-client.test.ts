@@ -247,9 +247,7 @@ describe("P4Client", () => {
     const shelf = runner.state.shelvedChangelists?.find(
       (item) => item.change === "10",
     );
-    expect(shelf?.files.map((file) => file.depotFile)).toEqual([
-      "//depot/a.c",
-    ]);
+    expect(shelf?.files.map((file) => file.depotFile)).toEqual(["//depot/a.c"]);
   });
 
   it("shelve() can limit paths and fails when nothing is open", async () => {

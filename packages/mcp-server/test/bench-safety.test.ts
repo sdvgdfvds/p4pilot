@@ -79,7 +79,7 @@ function makeCtx(
 }
 
 describe("bench-safety (offline agent invariants)", () => {
-it("submit_invariant: checkPolicy denies submit; no p4_submit among 21 tools", () => {
+  it("submit_invariant: checkPolicy denies submit; no p4_submit among 21 tools", () => {
     // Hard product boundary: submit is never allowed by any preset.
     for (const policy of [RESTRICTED_AGENT_POLICY, READ_ONLY_POLICY] as const) {
       const result = checkPolicy(policy, "submit");

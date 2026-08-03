@@ -108,14 +108,14 @@ This sequence is **manual**. Do not wire it into package scripts or CI.
 
 ## E. End-to-end demo pass/fail
 
-| Check                                      | Pass criteria                                      |
-| ------------------------------------------ | -------------------------------------------------- |
-| Policy env                                 | `restricted-agent` (or intended preset) active     |
-| No submit tool                             | MCP tool list never includes `p4_submit`           |
-| Bot cannot submit                          | Server rejects bot submit on sandbox               |
-| Human can submit                           | Human submits reviewed CL via P4V (sandbox/demo)   |
-| Audit tail works                           | `p4_audit_tail` or JSONL shows policy decisions    |
-| Shell-bypass honesty                       | Team understands dual control ([SECURITY.md](../../docs/SECURITY.md)) |
+| Check                | Pass criteria                                                         |
+| -------------------- | --------------------------------------------------------------------- |
+| Policy env           | `restricted-agent` (or intended preset) active                        |
+| No submit tool       | MCP tool list never includes `p4_submit`                              |
+| Bot cannot submit    | Server rejects bot submit on sandbox                                  |
+| Human can submit     | Human submits reviewed CL via P4V (sandbox/demo)                      |
+| Audit tail works     | `p4_audit_tail` or JSONL shows policy decisions                       |
+| Shell-bypass honesty | Team understands dual control ([SECURITY.md](../../docs/SECURITY.md)) |
 
 ## Related
 

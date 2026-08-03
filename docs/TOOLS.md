@@ -5,7 +5,7 @@
 > workflow. In-process `SafetyPolicy` (env `P4PILOT_POLICY`) can further narrow
 > which tools an agent may call; see [`SECURITY.md`](./SECURITY.md).
 
-`@p4pilot/mcp-server` exposes **20 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **21 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
 (see [Error codes](#error-codes)). Mutating tools run a policy check and append
@@ -479,7 +479,8 @@ $ p4_policy_info {}
     "edit",
     "read",
     "reopen",
-    "revert"
+    "revert",
+    "shelve"
   ],
   "protectBinaryAssets": true,
   "pathAllowlist": ["//depot/game/src"],
@@ -491,15 +492,15 @@ $ p4_policy_info {}
 
 Fields:
 
-| Field                  | Meaning                                                                 |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `policyName`           | Active policy id (`default` / `restricted-agent` / `read-only` / …)     |
-| `allowedActions`       | Sorted list of allowed `PolicyAction` values                            |
-| `protectBinaryAssets`  | Whether binary/large-asset path mutations are denied                    |
-| `pathAllowlist`        | Present only when a non-empty allowlist is configured                   |
-| `submitAllowed`        | Always `false` (product boundary)                                       |
-| `hasSubmitTool`        | Always `false` — there is no `p4_submit` tool                           |
-| `policyEnv`            | Optional raw `P4PILOT_POLICY` env value when set (never secrets)        |
+| Field                 | Meaning                                                             |
+| --------------------- | ------------------------------------------------------------------- |
+| `policyName`          | Active policy id (`default` / `restricted-agent` / `read-only` / …) |
+| `allowedActions`      | Sorted list of allowed `PolicyAction` values                        |
+| `protectBinaryAssets` | Whether binary/large-asset path mutations are denied                |
+| `pathAllowlist`       | Present only when a non-empty allowlist is configured               |
+| `submitAllowed`       | Always `false` (product boundary)                                   |
+| `hasSubmitTool`       | Always `false` — there is no `p4_submit` tool                       |
+| `policyEnv`           | Optional raw `P4PILOT_POLICY` env value when set (never secrets)    |
 
 ---
 

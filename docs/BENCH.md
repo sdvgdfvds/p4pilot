@@ -7,15 +7,15 @@ real Perforce server (`MockP4Runner` + `MemoryAuditSink` only).
 
 File: `packages/mcp-server/test/bench-safety.test.ts`
 
-| Scenario                             | Invariant                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `submit_invariant`                   | `checkPolicy` always denies `submit`; 21 tools include `p4_audit_tail` / `p4_policy_info` / `p4_shelve` and never `p4_submit` |
+| Scenario           | Invariant                                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `submit_invariant` | `checkPolicy` always denies `submit`; 21 tools include `p4_audit_tail` / `p4_policy_info` / `p4_shelve` and never `p4_submit` |
 
-| `restricted_denies_delete`           | `RESTRICTED_AGENT_POLICY` blocks `p4_delete` with `POLICY_DENIED` and an audit `deny` event                   |
-| `restricted_denies_binary_edit`      | Restricted policy blocks `smartEdit` on `.uasset` / binary-large paths + audit deny                           |
-| `restricted_allows_text_smart_edit`  | Restricted policy still allows text checkout (not a blanket freeze)                                           |
-| `audit_tail_lists`                   | After mixed actions, `p4_audit_tail` returns JSON events reflecting deny/success                              |
-| `read_only_blocks_changelist_create` | `READ_ONLY_POLICY` denies `changelist_create`                                                                 |
+| `restricted_denies_delete` | `RESTRICTED_AGENT_POLICY` blocks `p4_delete` with `POLICY_DENIED` and an audit `deny` event |
+| `restricted_denies_binary_edit` | Restricted policy blocks `smartEdit` on `.uasset` / binary-large paths + audit deny |
+| `restricted_allows_text_smart_edit` | Restricted policy still allows text checkout (not a blanket freeze) |
+| `audit_tail_lists` | After mixed actions, `p4_audit_tail` returns JSON events reflecting deny/success |
+| `read_only_blocks_changelist_create` | `READ_ONLY_POLICY` denies `changelist_create` |
 
 Handlers are exercised through `withPolicyAndAudit` with a real `ToolContext`
 (same gate used by `registerTools`), not live `p4d` scripts.
