@@ -21,13 +21,26 @@ Handlers are exercised through `withPolicyAndAudit` with a real `ToolContext`
 
 ## How to run
 
-From the repo root:
+From the repo root (preferred — builds `@p4pilot/core` first via
+`pretest:bench-safety`):
+
+```bash
+npm run test:bench-safety
+```
+
+Equivalent direct Vitest invocation:
 
 ```bash
 npx vitest run packages/mcp-server/test/bench-safety.test.ts
 ```
 
-Or via the workspace package scripts if configured for vitest.
+## CI
+
+GitHub Actions job **`safety-bench`** (workflow [`.github/workflows/ci.yml`](../.github/workflows/ci.yml))
+runs `npm run test:bench-safety` on every push/PR. The job name is
+`safety bench (offline MockP4Runner)` so studios can spot the offline safety
+signal without waiting for the full matrix build. No Perforce server or `p4`
+binary is installed in CI.
 
 ## What “pass” means for studio trust
 

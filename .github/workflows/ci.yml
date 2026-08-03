@@ -31,3 +31,18 @@ jobs:
         if: matrix.node-version == 22
         run: npm run test:coverage
       - run: npm run build
+
+  # Fast offline safety signal for studios (MockP4Runner only; no p4 binary).
+  safety-bench:
+    name: safety bench (offline MockP4Runner)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Offline safety bench (MockP4Runner, no real Perforce)
+        run: npm run test:bench-safety

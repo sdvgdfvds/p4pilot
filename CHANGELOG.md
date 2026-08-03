@@ -15,6 +15,8 @@ All notable changes to p4pilot are documented here. The format follows
 - HTTP host policy enforcement + `GET /api/audit` on loopback host.
 - Offline safety bench suite (`packages/mcp-server/test/bench-safety.test.ts`,
   `docs/BENCH.md`).
+- Named package script `npm run test:bench-safety` and CI job `safety-bench`
+  (offline MockP4Runner; no real Perforce).
 - Env `P4PILOT_POLICY` / `P4PILOT_ACTOR` for agent runtime safety configuration.
 - Security model doc (`docs/SECURITY.md`) and restricted-agent example profile.
 
