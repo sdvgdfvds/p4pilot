@@ -96,11 +96,26 @@ All exposed as **MCP tools**, so any MCP client (Claude Code, Cursor, Codex,
 JetBrains, …) gets Perforce fluency with zero custom glue. See the full
 [tool reference](./docs/TOOLS.md).
 
-### Human-controlled submission
+### Human-controlled submission & agent safety
 
 p4pilot deliberately stops at prepared, reviewable changelists. It does not
 expose `p4 submit`: a human reviews the diff and submits through their normal
 Perforce workflow. This is a product safety boundary, not a missing tool.
+
+Agent runtime safety (MCP + local host) layers on top of that boundary:
+
+- **Policy presets** — `default`, `restricted-agent`, and `read-only` via
+  `P4PILOT_POLICY` (submit is always hard-denied).
+- **Path allowlist** — optional `P4PILOT_PATH_ALLOWLIST` / `pathAllowlist` to
+  keep agent work inside chosen depot or workspace prefixes.
+- **Audit trail** — in-process events, optional JSONL file (`P4PILOT_AUDIT_LOG`),
+  `p4_audit_tail`, host `GET /api/audit`, and the Web **Audit** tab.
+- **Offline safety bench** — CI job + `npm run test:bench-safety` (MockP4Runner
+  only; no real Perforce).
+
+Honest limits and studio dual-control recommendations:
+[`docs/SECURITY.md`](./docs/SECURITY.md). Bench scenarios and green-signal
+meaning: [`docs/BENCH.md`](./docs/BENCH.md).
 
 ## How it compares
 
@@ -210,7 +225,9 @@ Windows P4V demo also includes terminal-free `start-demo.vbs` and
 
 See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and
 [`docs/SPEC.md`](./docs/SPEC.md) for the design, [`docs/TOOLS.md`](./docs/TOOLS.md)
-for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
+for the tool reference, [`docs/SECURITY.md`](./docs/SECURITY.md) for the security
+model, [`docs/BENCH.md`](./docs/BENCH.md) for the offline safety bench, and
+[`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 
 ## Roadmap
 
@@ -221,12 +238,14 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] Shared live panel in P4V HTML Tab, Unreal `SWebBrowser`, and Maya Qt WebEngine
 - [x] Shelved-changelist review workflow (`p4_shelved_review`)
 - [x] Asset dependency surfacing via injectable Unreal Asset Registry provider
+- [x] Agent runtime safety: policy presets, audit, path allowlist, Audit UI, offline bench CI
 
 ## Contributing
 
 This project is built test-first. See [`AGENTS.md`](./AGENTS.md) for the
 execution contract, [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for the
-design, and [`docs/PLAN.md`](./docs/PLAN.md) for open tasks. PRs welcome.
+design, [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the coverage gate and PR
+checklist, and [`docs/PLAN.md`](./docs/PLAN.md) for open tasks. PRs welcome.
 
 ## License
 

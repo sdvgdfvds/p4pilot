@@ -10,15 +10,26 @@ All notable changes to p4pilot are documented here. The format follows
 
 - Safety policy profiles (`default`, `restricted-agent`, `read-only`) with hard
   deny of `submit` and optional binary-asset open protection.
+- Optional `SafetyPolicy.pathAllowlist` and env `P4PILOT_PATH_ALLOWLIST` so
+  agents can be limited to depot/workspace path prefixes.
 - In-process audit log (`MemoryAuditSink`) and MCP tool `p4_audit_tail`.
 - Durable JSONL audit sink (`JsonlFileAuditSink`) via `P4PILOT_AUDIT_LOG`.
 - HTTP host policy enforcement + `GET /api/audit` on loopback host.
+- Web **Audit** panel (Dashboard | Review | Audit) for recent policy/tool
+  decisions; demo mode seeds sample events offline.
 - Offline safety bench suite (`packages/mcp-server/test/bench-safety.test.ts`,
   `docs/BENCH.md`).
 - Named package script `npm run test:bench-safety` and CI job `safety-bench`
   (offline MockP4Runner; no real Perforce).
 - Env `P4PILOT_POLICY` / `P4PILOT_ACTOR` for agent runtime safety configuration.
-- Security model doc (`docs/SECURITY.md`) and restricted-agent example profile.
+- Security model doc (`docs/SECURITY.md`) and restricted-agent example profile
+  with Helix protect/trigger templates under `examples/restricted-agent/helix/`.
+
+### Changed
+
+- Document Vitest global coverage floors (statements/lines/functions 80%,
+  branches 55%) in `CONTRIBUTING.md`; CI Node 22 step remains
+  `npm run test:coverage` and fails when thresholds are missed.
 
 ## [0.2.0] - 2026-08-03
 

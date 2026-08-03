@@ -42,6 +42,11 @@ runs `npm run test:bench-safety` on every push/PR. The job name is
 signal without waiting for the full matrix build. No Perforce server or `p4`
 binary is installed in CI.
 
+Separately, the main **build** job’s Node 22 matrix step runs
+`npm run test:coverage` against the global floors in root `vitest.config.ts`
+(statements/lines/functions 80%, branches 55%). That is a general quality gate,
+not a substitute for this safety bench—see [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+
 ## What “pass” means for studio trust
 
 A green offline bench means:

@@ -506,3 +506,25 @@ Branch: `feat/agent-runtime-safety`. Authoritative interfaces: `docs/SPEC.md`
 - [x] No `p4_submit` anywhere in the MCP/HTTP surface.
 - [x] Offline bench-safety suite green (`bench-safety.test.ts`).
 - [x] SPEC, SECURITY, TOOLS, and restricted-agent example match shipped names.
+
+---
+
+## Milestone: post-safety polish
+
+Small follow-ups after the agent-runtime-safety round (no new MCP tools unless
+already on the base branch). Keep CI useful and docs honest.
+
+### Coverage gate
+
+- [x] Root `vitest.config.ts` global floors: statements/lines/functions **80%**,
+      branches **55%** (safe below overall ~85% stmts; Vitest fails on miss).
+- [x] CI Node 22 step runs `npm run test:coverage` as the coverage gate.
+- [x] Document floors + command in `CONTRIBUTING.md` (and CI step comment).
+
+### Docs polish (this round)
+
+- [x] `CHANGELOG.md` [Unreleased]: policy presets, path allowlist, JSONL audit,
+      Audit UI, bench CI, Helix templates (no invented unmerged tools).
+- [x] `README.md`: security/policy bullets; links to `docs/SECURITY.md` and
+      `docs/BENCH.md`.
+- [x] This milestone checklist.

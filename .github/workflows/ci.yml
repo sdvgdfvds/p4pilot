@@ -27,7 +27,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - name: Collect coverage
+      # Fails if global coverage drops below vitest.config.ts thresholds
+      # (statements/lines/functions 80%, branches 55%).
+      - name: Coverage gate (thresholds in vitest.config.ts)
         if: matrix.node-version == 22
         run: npm run test:coverage
       - run: npm run build
