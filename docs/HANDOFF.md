@@ -15,7 +15,7 @@ p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 
 准备公开包 `0.2.0` release candidate，具备完整的格式、lint、coverage、测试、
 构建和 npm pack 门禁。GitHub Actions CI 和 GitHub Pages 部署已启用。
 
-### 进行中：Agent runtime safety（本分支）
+### 进行中：Agent runtime safety（本分支，tip `2351590`）
 
 目标：为 MCP / agent 运行时增加**进程内策略门闩 + 审计**，并写清安全边界诚实性
 （产品永不暴露 `p4_submit`；带 shell + 凭据的 agent 仍可绕过；生产必须叠加
@@ -23,17 +23,28 @@ p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 
 
 契约摘要（权威接口见 `docs/SPEC.md` §4.11–§4.12、§5.1.1、§5.2）：
 
-- `@p4pilot/core`：`src/policy.ts`（`SafetyPolicy`、三档预设、`checkPolicy` /
-  `assertPolicyAllowed`、硬拒绝 `submit`）、`src/audit.ts`（`AuditEvent` /
-  `AuditSink` / `MemoryAuditSink` / `createAuditEvent`）、`POLICY_DENIED`。
+- `@p4pilot/core`：`src/policy.ts`（`SafetyPolicy`、三档预设、可选
+  `pathAllowlist`、`checkPolicy` / `assertPolicyAllowed`、硬拒绝 `submit`）、
+  `src/audit.ts`（`AuditEvent` / `AuditSink` / `MemoryAuditSink` /
+  `JsonlFileAuditSink` / `createAuditEvent`）、`POLICY_DENIED`。
 - `@p4pilot/mcp-server`：`ToolContext.policy` + `audit`（必填）、`safe-tool`
-  `withPolicyAndAudit`、`resolveSafetyPolicy` / `P4PILOT_POLICY`、工具
-  `p4_audit_tail`；**仍无** `p4_submit`。
-- 文档：`docs/SECURITY.md`、`examples/restricted-agent/README.md`、本 HANDOFF /
-  PLAN / TOOLS / SPEC 已与契约对齐。
+  `withPolicyAndAudit`、`resolveSafetyPolicy` / `P4PILOT_POLICY` /
+  `P4PILOT_PATH_ALLOWLIST`、工具 `p4_audit_tail`；**仍无** `p4_submit`；
+  host `GET /api/audit`。
+- `@p4pilot/web`：Dashboard | Review | **Audit** 三标签；DemoStore 预置审计事件。
+- CI：独立 job `safety-bench`；本地 `npm run test:bench-safety`。
+- 示例：`examples/restricted-agent/helix/*` protect/trigger 模板 + `VERIFY.md`。
+- 文档：`docs/SECURITY.md`、`docs/BENCH.md`、本 HANDOFF / PLAN / TOOLS / SPEC
+  已与契约对齐。
 
-代码与文档可能仍在同一分支并行完善；以 `docs/SPEC.md` §4.11–§4.12 / §5.1.1
-为接口权威。测试继续全离线 `MockP4Runner`，不要发明契约外 API。
+**测试**：全仓 **181** 离线测试绿；`npm run typecheck` 通过。
+
+相关 feature 分支（已合入本分支）：`feat/ci-bench-safety`、
+`feat/web-audit-panel`、`feat/policy-path-allowlist`、
+`feat/restricted-helix-scripts`。
+
+下一优先：将本分支 PR 合入 `main`（勿在 main 直接改）；可选真实 Helix 联调
+（仅用受限 bot 用户，**禁止**把生产 submit 写成自动化）。
 
 已交付内容（`main` / v0.2.0 基线 + 本分支安全层）：
 
