@@ -380,6 +380,41 @@ export async function auditTail(
   return ok(JSON.stringify(events, null, 2));
 }
 
+/**
+ * Inspect the active in-process {@link SafetyPolicy}.
+ *
+ * Maps to policy action `read` so every preset (including read-only) can call
+ * it without API churn for a dedicated `policy_info` action. Always reports
+ * `submitAllowed: false` and `hasSubmitTool: false` (product boundary).
+ */
+export async function policyInfo(ctx: ToolContext): Promise<ToolResult> {
+  const allowedActions = [...ctx.policy.allowedActions].sort();
+  const payload: {
+    policyName: string;
+    allowedActions: string[];
+    protectBinaryAssets: boolean;
+    pathAllowlist?: string[];
+    submitAllowed: false;
+    hasSubmitTool: false;
+    policyEnv?: string;
+  } = {
+    policyName: ctx.policy.name,
+    allowedActions,
+    protectBinaryAssets: ctx.policy.protectBinaryAssets,
+    submitAllowed: false,
+    hasSubmitTool: false,
+  };
+  if (ctx.policy.pathAllowlist !== undefined) {
+    payload.pathAllowlist = [...ctx.policy.pathAllowlist];
+  }
+  // Optional non-secret env hint for demos (raw P4PILOT_POLICY if set).
+  const policyEnv = process.env.P4PILOT_POLICY?.trim();
+  if (policyEnv) {
+    payload.policyEnv = policyEnv;
+  }
+  return ok(JSON.stringify(payload, null, 2));
+}
+
 // --- registration ---
 
 /** Tool names registered by {@link registerTools}. Exported for tests. */
@@ -403,6 +438,7 @@ export const REGISTERED_TOOL_NAMES = [
   "p4_filelog",
   "p4_search",
   "p4_audit_tail",
+  "p4_policy_info",
 ] as const;
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {
@@ -718,6 +754,18 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     (args) =>
       guarded(ctx, { tool: "p4_audit_tail", action: "audit_tail" }, () =>
         auditTail(ctx, args),
+      ),
+  );
+  server.registerTool(
+    "p4_policy_info",
+    {
+      title: "Safety policy info",
+      description:
+        "Return the active SafetyPolicy snapshot (name, allowed actions, binary protection, path allowlist). Always reports submit disallowed; maps to policy action `read` so read-only sessions can inspect policy.",
+    },
+    () =>
+      guarded(ctx, { tool: "p4_policy_info", action: "read" }, () =>
+        policyInfo(ctx),
       ),
   );
 }

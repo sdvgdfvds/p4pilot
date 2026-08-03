@@ -111,10 +111,11 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_filelog",
         "p4_search",
         "p4_audit_tail",
+        "p4_policy_info",
       ]),
     );
     expect(names).not.toContain("p4_submit");
-    expect(tools).toHaveLength(19);
+    expect(tools).toHaveLength(20);
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {

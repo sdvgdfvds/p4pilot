@@ -51,7 +51,7 @@ p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 
 - `@p4pilot/core`：Perforce runner、ztag parser、typed client、auto-checkout、
   asset guard、shelved review、Unreal asset dependency traversal、changelist
   helpers、safety policy、audit，以及离线 `MockP4Runner`。
-- `@p4pilot/mcp-server`：19 个 MCP 工具（含 `p4_audit_tail`），并提供
+- `@p4pilot/mcp-server`：20 个 MCP 工具（含 `p4_audit_tail`、`p4_policy_info`），并提供
   loopback-only `p4pilot-host`；`--mock` 模式无需 Perforce。
 - npm：registry 当前公开版本仍为 `@p4pilot/core@0.1.1` 与
   `@p4pilot/mcp-server@0.1.1`；`0.2.0` manifests 已准备，发布需要 npm 账号授权。
