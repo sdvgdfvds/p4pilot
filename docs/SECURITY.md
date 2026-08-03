@@ -80,4 +80,13 @@ Mitigations that actually work:
 6. Offline safety invariants: see [`docs/BENCH.md`](./BENCH.md).
 
 See also [`examples/restricted-agent/README.md`](../examples/restricted-agent/README.md)
-for a conceptual setup walkthrough (no real secrets).
+for a conceptual setup walkthrough (no real secrets), plus Helix admin templates:
+
+- [`examples/restricted-agent/helix/protect.sample`](../examples/restricted-agent/helix/protect.sample) —
+  commented protections / permissions patterns for a bot user that can write but
+  must not submit
+- [`examples/restricted-agent/helix/triggers.sample`](../examples/restricted-agent/helix/triggers.sample)
+  and `check-submit-deny.*` — optional change-submit deny layer (templates /
+  dry-run only)
+- [`examples/restricted-agent/VERIFY.md`](../examples/restricted-agent/VERIFY.md) —
+  real-demo verification checklist (safe commands only; no automated production submit)

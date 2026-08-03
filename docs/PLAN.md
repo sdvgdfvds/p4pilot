@@ -496,8 +496,9 @@ Branch: `feat/agent-runtime-safety`. Authoritative interfaces: `docs/SPEC.md`
 - [x] **Host audit surface** — host HTTP mutations use policy + audit;
       `GET /api/audit` for local dashboards.
 - [ ] Publish bench as a named CI job / package script if useful for studios.
-- [ ] Restricted Helix user + server-side submit deny scripts for real-demo
-      (outside pure mock CI).
+- [x] Restricted Helix user + server-side submit deny scripts for real-demo
+      (outside pure mock CI) — `examples/restricted-agent/helix/*` templates +
+      `VERIFY.md` (no production submit automation).
 
 ### Definition of done (implementation)
 
