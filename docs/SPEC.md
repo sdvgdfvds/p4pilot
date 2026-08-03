@@ -703,20 +703,22 @@ Every registered tool runs through `withPolicyAndAudit` (`src/safe-tool.ts`):
 
 Tool → `PolicyAction` mapping (representative):
 
-| Tools                                                                                                                                         | `PolicyAction`      |
-| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| `p4_status`, `p4_where`, `p4_describe`, `p4_review`, `p4_shelved_review`, `p4_asset_info`, `p4_asset_dependencies`, `p4_filelog`, `p4_search` | `read`              |
-| `p4_smart_edit`, `p4_edit`                                                                                                                    | `edit`              |
-| `p4_add`                                                                                                                                      | `add`               |
-| `p4_delete`                                                                                                                                   | `delete`            |
-| `p4_revert`                                                                                                                                   | `revert`            |
-| `p4_sync`                                                                                                                                     | `sync`              |
-| `p4_reopen`                                                                                                                                   | `reopen`            |
-| `p4_changelist_create`                                                                                                                        | `changelist_create` |
-| `p4_changelist_list`                                                                                                                          | `changelist_list`   |
-| `p4_audit_tail`                                                                                                                               | `audit_tail`        |
+| Tools                                                                                                                                                                      | `PolicyAction`      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `p4_status`, `p4_where`, `p4_describe`, `p4_review`, `p4_shelved_review`, `p4_asset_info`, `p4_asset_dependencies`, `p4_filelog`, `p4_search`, `p4_policy_info` | `read`              |
+| `p4_smart_edit`, `p4_edit`                                                                                                                                                 | `edit`              |
+| `p4_add`                                                                                                                                                                   | `add`               |
+| `p4_delete`                                                                                                                                                                | `delete`            |
+| `p4_revert`                                                                                                                                                                | `revert`            |
+| `p4_sync`                                                                                                                                                                  | `sync`              |
+| `p4_reopen`                                                                                                                                                                | `reopen`            |
+| `p4_changelist_create`                                                                                                                                                     | `changelist_create` |
+| `p4_changelist_list`                                                                                                                                                       | `changelist_list`   |
+| `p4_audit_tail`                                                                                                                                                            | `audit_tail`        |
 
-No tool maps to `submit`.
+No tool maps to `submit`. `p4_policy_info` intentionally maps to `read` (not a
+dedicated `policy_info` action) so every preset including `read-only` can
+inspect the active policy without expanding the `PolicyAction` surface.
 
 ### 5.2 Tools (each has a zod input schema; each returns structured text content)
 
@@ -741,6 +743,17 @@ No tool maps to `submit`.
 | `p4_search`             | `{ query: string, glob?: string }`           | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
 | `p4_filelog`            | `{ path: string, max?: number }`             | `client.filelog`                                                                  |
 | `p4_audit_tail`         | `{ limit?: number }` (positive int, max 500) | `ctx.audit.tail(limit)` as pretty-printed JSON                                    |
+| `p4_policy_info`        | `{}`                                         | Active `SafetyPolicy` snapshot as pretty-printed JSON (see below)                 |
+
+`p4_policy_info` returns JSON text with:
+
+- `policyName` — `SafetyPolicy.name`
+- `allowedActions` — sorted array of allowed `PolicyAction` strings
+- `protectBinaryAssets` — boolean
+- `pathAllowlist` — string array when set; omitted when unrestricted
+- `submitAllowed` — always `false`
+- `hasSubmitTool` — always `false`
+- `policyEnv` — optional; raw `P4PILOT_POLICY` env value when set (non-secret)
 
 There is **no** `p4_submit` tool.
 

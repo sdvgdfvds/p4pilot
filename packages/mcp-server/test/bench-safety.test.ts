@@ -79,7 +79,7 @@ function makeCtx(
 }
 
 describe("bench-safety (offline agent invariants)", () => {
-  it("submit_invariant: checkPolicy denies submit; no p4_submit among 19 tools", () => {
+  it("submit_invariant: checkPolicy denies submit; no p4_submit among 20 tools", () => {
     // Hard product boundary: submit is never allowed by any preset.
     for (const policy of [RESTRICTED_AGENT_POLICY, READ_ONLY_POLICY] as const) {
       const result = checkPolicy(policy, "submit");
@@ -88,8 +88,9 @@ describe("bench-safety (offline agent invariants)", () => {
     }
 
     // Surface contract: registerTools exposes exactly the known safe set.
-    expect(REGISTERED_TOOL_NAMES).toHaveLength(19);
+    expect(REGISTERED_TOOL_NAMES).toHaveLength(20);
     expect(REGISTERED_TOOL_NAMES).toContain("p4_audit_tail");
+    expect(REGISTERED_TOOL_NAMES).toContain("p4_policy_info");
     expect(REGISTERED_TOOL_NAMES).not.toContain("p4_submit");
     expect(
       REGISTERED_TOOL_NAMES.some((name) =>
