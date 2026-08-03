@@ -9,6 +9,7 @@ import {
 } from "@p4pilot/core/browser";
 import type {
   AssetInfoData,
+  AuditEvent,
   FileView,
   P4PilotBackend,
   ReviewData,
@@ -17,15 +18,63 @@ import type {
 import { toDiffRows } from "../diff.js";
 import { makeSeed, type DemoSeed } from "./seed.js";
 
-export type { AssetInfoData, FileView, ReviewData } from "../backend/types.js";
+export type {
+  AssetInfoData,
+  AuditEvent,
+  FileView,
+  ReviewData,
+} from "../backend/types.js";
+
+/** Fixed demo timestamps so tests stay stable. */
+function seedAuditEvents(): AuditEvent[] {
+  return [
+    {
+      id: "demo-audit-1",
+      timestamp: "2026-07-30T14:02:11.000Z",
+      tool: "p4_smart_edit",
+      action: "edit",
+      decision: "success",
+      actor: "demo-agent",
+      paths: ["/depot/game/src/player.cpp"],
+      changelist: "812",
+      durationMs: 42,
+      message: "allowed smart_edit on text path",
+      reason: "allowed smart_edit on text path",
+    },
+    {
+      id: "demo-audit-2",
+      timestamp: "2026-07-30T14:03:04.000Z",
+      tool: "p4_delete",
+      action: "delete",
+      decision: "deny",
+      actor: "demo-agent",
+      paths: ["/depot/game/src/legacy.cpp"],
+      message: 'action "delete" denied by policy "restricted-agent"',
+      reason: 'action "delete" denied by policy "restricted-agent"',
+    },
+    {
+      id: "demo-audit-3",
+      timestamp: "2026-07-30T14:03:18.000Z",
+      tool: "p4_submit",
+      action: "submit",
+      decision: "deny",
+      actor: "demo-agent",
+      changelist: "812",
+      message: 'action "submit" denied by policy "restricted-agent"',
+      reason: 'action "submit" denied by policy "restricted-agent"',
+    },
+  ];
+}
 
 export class DemoStore implements P4PilotBackend {
   readonly #seed: DemoSeed;
   readonly #client: P4Client;
+  readonly #auditEvents: AuditEvent[];
 
   constructor() {
     this.#seed = makeSeed();
     this.#client = new P4Client(new MockP4Runner(this.#seed.depot));
+    this.#auditEvents = seedAuditEvents();
   }
 
   async getWorkspace(): Promise<WorkspaceSnapshot> {
@@ -120,6 +169,12 @@ export class DemoStore implements P4PilotBackend {
         };
       }),
     };
+  }
+
+  async listAuditEvents(limit?: number): Promise<AuditEvent[]> {
+    if (limit === undefined) return this.#auditEvents.slice();
+    if (limit <= 0) return [];
+    return this.#auditEvents.slice(-limit);
   }
 
   #openedChange(depotFile: string): string | undefined {

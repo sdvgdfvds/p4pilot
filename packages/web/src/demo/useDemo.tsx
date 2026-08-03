@@ -10,6 +10,7 @@ import {
 import { DemoStore } from "./store.js";
 import type {
   AssetInfoData,
+  AuditEvent,
   BackendConnection,
   FileView,
   P4PilotBackend,
@@ -23,6 +24,7 @@ export const operationKey = {
   assetInfo: (path: string) => `asset-info:${path}`,
   review: (change: string) => `review:${change}`,
   createChangelist: "create-changelist",
+  listAudit: "list-audit",
 } as const;
 
 interface DemoContextValue {
@@ -38,6 +40,7 @@ interface DemoContextValue {
   revert: (clientFile: string) => Promise<boolean>;
   inspectAsset: (path: string) => Promise<AssetInfoData | undefined>;
   loadReview: (change: string) => Promise<ReviewData | undefined>;
+  listAuditEvents: (limit?: number) => Promise<AuditEvent[] | undefined>;
 }
 
 const DemoContext = createContext<DemoContextValue | null>(null);
@@ -160,6 +163,11 @@ export function DemoProvider({
       runOperation(operationKey.review(change), () => store.review(change)),
     [runOperation, store],
   );
+  const listAuditEvents = useCallback(
+    (limit?: number) =>
+      runOperation(operationKey.listAudit, () => store.listAuditEvents(limit)),
+    [runOperation, store],
+  );
 
   const value: DemoContextValue = {
     files,
@@ -174,6 +182,7 @@ export function DemoProvider({
     revert,
     inspectAsset,
     loadReview,
+    listAuditEvents,
   };
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;

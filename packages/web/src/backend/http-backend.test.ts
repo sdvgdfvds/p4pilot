@@ -91,4 +91,48 @@ describe("HttpBackend", () => {
       "P4_COMMAND_FAILED: not connected",
     );
   });
+
+  it("fetches audit events from GET /api/audit", async () => {
+    const events = [
+      {
+        id: "a1",
+        timestamp: "2026-07-30T14:02:11.000Z",
+        tool: "host.smart-edit",
+        action: "edit",
+        decision: "success",
+        paths: ["/ws/player.cpp"],
+      },
+      {
+        id: "a2",
+        timestamp: "2026-07-30T14:03:04.000Z",
+        tool: "host.smart-edit",
+        action: "delete",
+        decision: "deny",
+        message: 'action "delete" denied by policy "restricted-agent"',
+      },
+    ];
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:4715/api/audit?limit=25") {
+        return json({ events });
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    });
+    const backend = new HttpBackend("http://127.0.0.1:4715", fetcher);
+
+    await expect(backend.listAuditEvents(25)).resolves.toEqual(events);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("omits limit query when listAuditEvents is called without a limit", async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:4715/api/audit") {
+        return json({ events: [] });
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    });
+    const backend = new HttpBackend("http://127.0.0.1:4715", fetcher);
+    await expect(backend.listAuditEvents()).resolves.toEqual([]);
+  });
 });

@@ -789,6 +789,7 @@ from the same origin. Routes are limited to the UI workflows:
 - `GET /api/workspace` — connection, opened files, pending changelists
 - `GET /api/asset-info?path=...`
 - `GET /api/review?change=...`
+- `GET /api/audit?limit=N` — recent policy/tool audit events
 - `POST /api/smart-edit`, `/api/revert`, `/api/changelists`
 
 Responses use typed JSON errors. There is no submit route. Core behavior remains
@@ -817,6 +818,8 @@ export interface P4PilotBackend {
   revert(clientFile: string): Promise<unknown>;
   assetInfo(path: string): Promise<AssetInfoData>;
   review(change: string): Promise<ReviewData>;
+  /** Recent policy/tool audit events (host `GET /api/audit`). Newest last. */
+  listAuditEvents(limit?: number): Promise<AuditEvent[]>;
 }
 ```
 
@@ -826,6 +829,8 @@ export interface P4PilotBackend {
   status, smart checkout, revert, asset metadata, and pending changelists.
 - **Changelist review:** selects a pending changelist and renders its files plus
   a seeded unified diff.
+- **Policy audit:** table of recent audit events (time, decision, tool, action,
+  reason) with refresh; `DemoStore` seeds allow/deny samples for offline demo.
 
 ### 6.2 Async behavior
 

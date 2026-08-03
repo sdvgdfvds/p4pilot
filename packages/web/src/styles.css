@@ -632,9 +632,73 @@ select:disabled {
   font-size: 12px;
 }
 
-.review-heading {
+.review-heading,
+.audit-heading {
   align-items: flex-end;
 }
+
+.audit-table-shell {
+  background: #ffffff;
+  border: 1px solid #d7dde3;
+  border-radius: 6px;
+}
+
+.audit-table-shell table {
+  min-width: 820px;
+}
+
+.audit-table-shell th:nth-child(1) {
+  width: 170px;
+}
+.audit-table-shell th:nth-child(2) {
+  width: 100px;
+}
+.audit-table-shell th:nth-child(3) {
+  width: 140px;
+}
+.audit-table-shell th:nth-child(4) {
+  width: 110px;
+}
+.audit-table-shell th:nth-child(5) {
+  width: auto;
+}
+
+.audit-time {
+  color: #53606d;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.audit-tool,
+.audit-action {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.audit-reason {
+  color: #3b4854;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.badge.audit-decision.success,
+.badge.audit-decision.allow {
+  color: #1d6542;
+  background: #e7f4ed;
+  border-color: #b8dfc9;
+}
+.badge.audit-decision.deny {
+  color: #8a2c2c;
+  background: #fdeaea;
+  border-color: #f0c0c0;
+}
+.badge.audit-decision.error {
+  color: #855b12;
+  background: #fff5dc;
+  border-color: #ecd394;
+}
+
 .review-picker {
   width: min(100%, 430px);
   display: grid;
@@ -812,7 +876,8 @@ select:disabled {
     padding-top: 20px;
   }
   .section-heading,
-  .review-heading {
+  .review-heading,
+  .audit-heading {
     align-items: stretch;
     flex-direction: column;
     gap: 14px;
