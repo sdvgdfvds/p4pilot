@@ -28,6 +28,7 @@ import {
   revert,
   review,
   search,
+  shelve,
   shelvedReview,
   smartEdit,
   status,
@@ -242,6 +243,26 @@ describe("mcp tool handlers", () => {
     expect(result.content[0]!.text).toContain("Shelved review of change 814");
     expect(result.content[0]!.text).toContain("//depot/a.c");
     expect(result.content[0]!.text).toContain("@@ -1 +1 @@");
+  });
+
+  it("shelve shelves opened files on a pending changelist without submitting", async () => {
+    const runner = seed();
+    const ctx = makeCtx(runner);
+    await ctx.client.edit(["/ws/a.c"], { changelist: "812" });
+
+    const result = await shelve(ctx, { change: "812" });
+    expect(result.isError).not.toBe(true);
+    expect(result.content[0]!.text).toContain(
+      "Shelved 1 file(s) on change 812 for human review (not submitted).",
+    );
+    expect(result.content[0]!.text).toContain("//depot/a.c");
+    expect(
+      runner.state.shelvedChangelists?.some(
+        (item) =>
+          item.change === "812" &&
+          item.files.some((file) => file.depotFile === "//depot/a.c"),
+      ),
+    ).toBe(true);
   });
 
   it("assetInfo withholds bytes for a binary asset", async () => {

@@ -17,7 +17,7 @@ describe("DEFAULT_SAFETY_POLICY", () => {
     expect(result.reason?.toLowerCase()).toMatch(/submit/);
   });
 
-  it("allows edit/add/delete/sync for backward compatibility", () => {
+  it("allows edit/add/delete/sync/shelve for backward compatibility", () => {
     for (const action of [
       "edit",
       "add",
@@ -25,6 +25,7 @@ describe("DEFAULT_SAFETY_POLICY", () => {
       "sync",
       "read",
       "changelist_create",
+      "shelve",
       "audit_tail",
     ] as const) {
       const result = checkPolicy(DEFAULT_SAFETY_POLICY, action, {
@@ -58,16 +59,17 @@ describe("RESTRICTED_AGENT_POLICY", () => {
     expect(result.allowed).toBe(true);
   });
 
-  it("allows read and changelist_create", () => {
+  it("allows read, changelist_create, and shelve (prep for human review)", () => {
     expect(checkPolicy(RESTRICTED_AGENT_POLICY, "read").allowed).toBe(true);
     expect(
       checkPolicy(RESTRICTED_AGENT_POLICY, "changelist_create").allowed,
     ).toBe(true);
+    expect(checkPolicy(RESTRICTED_AGENT_POLICY, "shelve").allowed).toBe(true);
   });
 });
 
 describe("READ_ONLY_POLICY", () => {
-  it("denies write ops", () => {
+  it("denies write ops including shelve", () => {
     for (const action of [
       "edit",
       "add",
@@ -76,6 +78,7 @@ describe("READ_ONLY_POLICY", () => {
       "sync",
       "reopen",
       "changelist_create",
+      "shelve",
     ] as const) {
       expect(checkPolicy(READ_ONLY_POLICY, action).allowed).toBe(false);
     }

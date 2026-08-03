@@ -10,6 +10,11 @@ The product prepares pending and shelved changelists; a human reviews and
 submits through the normal Perforce workflow (typically P4V or an equivalent
 approved path).
 
+**Shelve is allowed for agents as prep, not submit.** The MCP tool `p4_shelve`
+(policy action `shelve`) stores a pending changelist on the server for human
+review. It is permitted under `default` and `restricted-agent` presets and
+denied under `read-only`. Shelve does not promote or submit the changelist.
+
 This boundary is intentional and stable. Do not add submit automation to the
 public MCP surface.
 

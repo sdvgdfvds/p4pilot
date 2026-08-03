@@ -277,6 +277,30 @@ the server rather than unsaved edits in the current client workspace.
 
 ---
 
+## `p4_shelve`
+
+Shelve opened files on a pending changelist so a human can review them on the
+server (e.g. via P4V or `p4_shelved_review`). This is the safe agent handoff
+before human submit — it **does not submit**.
+
+**Input:** `{ change: string, paths?: string[] }`
+
+- `change` — numbered pending changelist to shelve.
+- `paths` — optional subset of opened files; omit to shelve all files open on
+  that changelist.
+
+```text
+$ p4_shelve { "change": "813" }
+Shelved 1 file(s) on change 813 for human review (not submitted).
+Files:
+  edit	//depot/game/src/player.cpp
+```
+
+Under `P4PILOT_POLICY=restricted-agent`, `p4_shelve` is **allowed** (prep work).
+Under `read-only`, it is denied. There is still **no** `p4_submit` tool.
+
+---
+
 ## `p4_asset_info`
 
 Classify a file. For binary/large assets it returns **metadata only** and

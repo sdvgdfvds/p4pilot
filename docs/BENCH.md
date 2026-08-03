@@ -9,7 +9,8 @@ File: `packages/mcp-server/test/bench-safety.test.ts`
 
 | Scenario                             | Invariant                                                                                                     |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `submit_invariant`                   | `checkPolicy` always denies `submit`; registered MCP tools (20) include `p4_audit_tail` / `p4_policy_info` and never `p4_submit` |
+| `submit_invariant`                   | `checkPolicy` always denies `submit`; 21 tools include `p4_audit_tail` / `p4_policy_info` / `p4_shelve` and never `p4_submit` |
+
 | `restricted_denies_delete`           | `RESTRICTED_AGENT_POLICY` blocks `p4_delete` with `POLICY_DENIED` and an audit `deny` event                   |
 | `restricted_denies_binary_edit`      | Restricted policy blocks `smartEdit` on `.uasset` / binary-large paths + audit deny                           |
 | `restricted_allows_text_smart_edit`  | Restricted policy still allows text checkout (not a blanket freeze)                                           |

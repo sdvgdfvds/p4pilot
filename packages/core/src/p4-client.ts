@@ -5,6 +5,7 @@ import type {
   FileStat,
   OpenedFile,
   P4Action,
+  ShelveResult,
   ShelvedReviewResult,
 } from "./types.js";
 import { P4PilotError } from "./types.js";
@@ -370,5 +371,26 @@ export class P4Client {
       ...toOpenedFile(record),
       change: changelist,
     }));
+  }
+
+  /**
+   * Shelve opened files on a pending changelist for human review.
+   * Runs `p4 shelve -c <change> [paths…]`. Does **not** submit.
+   * Opened workspace files remain open (default Helix shelve behavior).
+   */
+  async shelve(
+    change: string,
+    opts?: { paths?: string[] },
+  ): Promise<ShelveResult> {
+    const args = ["shelve", "-c", change];
+    if (opts?.paths && opts.paths.length > 0) {
+      args.push(...opts.paths);
+    }
+    const { stdout } = await this.#run(args);
+    const files = parseZtag(stdout).map((record) => ({
+      ...toOpenedFile(record),
+      change,
+    }));
+    return { change, files };
   }
 }
