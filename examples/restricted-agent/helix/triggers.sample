@@ -1,0 +1,58 @@
+# p4pilot — sample Helix change-submit trigger notes (submit deny for bot user)
+#
+# PURPOSE
+#   Optional second layer on top of protections: a change-submit (or similar)
+#   trigger that rejects submit when the submitting user is the agent bot.
+#
+# SAFETY
+#   - Templates and documentation only.
+#   - Do not install on production without admin review and a sandbox rehearsal.
+#   - Companion scripts refuse to run unless P4PILOT_ALLOW_TRIGGER_INSTALL=1
+#     (and still only print guidance — they do not call p4 triggers by default).
+#
+# ILLUSTRATIVE NAMES
+#   Bot user: p4pilot-agent
+#   Trigger name: p4pilot-deny-agent-submit
+#   Script path placeholders: use paths on YOUR trigger host, not these samples.
+
+# =============================================================================
+# Example triggers table fragment (COMMENTED — adapt before use)
+# =============================================================================
+#
+# Form (conceptual; confirm with `p4 help triggers` for your version):
+#
+#   p4pilot-deny-agent-submit change-submit //... "/path/to/check-submit-deny.sh %user% %change% %client%"
+#
+# Windows trigger host example (paths and quoting are site-specific):
+#
+#   p4pilot-deny-agent-submit change-submit //... "powershell.exe -NoProfile -File C:\p4\triggers\check-submit-deny.ps1 -User %user% -Change %change% -Client %client%"
+#
+# Notes:
+#   - Trigger type names and argument substitution tokens differ by version.
+#   - Prefer matching on authenticated user identity, not client hostname alone.
+#   - Exit non-zero (and print a clear message to stderr) to deny the submit.
+#   - Log denials to your studio audit sink if required by policy.
+#   - Keep human submitters unaffected: only deny when user == p4pilot-agent
+#     (or membership in group ai-agents, if you implement a group lookup).
+
+# =============================================================================
+# Behavioral contract for the check script
+# =============================================================================
+#
+# Inputs (typical): submitting user, changelist number, client name
+# Decision:
+#   if user is p4pilot-agent (or in ai-agents deny-list):
+#       print reason → exit 1  (submit denied)
+#   else:
+#       exit 0                 (submit allowed by this trigger)
+#
+# This trigger is NOT a replacement for:
+#   - removing p4_submit from p4pilot (product boundary)
+#   - P4PILOT_POLICY restricted-agent / read-only
+#   - sane protections / path limits
+#
+# See also:
+#   check-submit-deny.sh
+#   check-submit-deny.ps1
+#   ../VERIFY.md
+#   ../README.md

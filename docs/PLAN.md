@@ -497,7 +497,7 @@ Branch: `feat/agent-runtime-safety`. Authoritative interfaces: `docs/SPEC.md`
       `GET /api/audit` for local dashboards.
 - [x] Publish bench as a named CI job / package script if useful for studios.
       (`npm run test:bench-safety` + CI job `safety-bench`).
-- [ ] Restricted Helix user + server-side submit deny scripts for real-demo
+- [x] Restricted Helix user + server-side submit deny scripts for real-demo
       (outside pure mock CI).
 
 ### Definition of done (implementation)

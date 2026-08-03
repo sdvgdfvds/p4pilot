@@ -57,7 +57,7 @@ Cursor / Codex: set the same env on the MCP server process (see
 [`cursor.mcp.json`](../cursor.mcp.json) and [`codex.config.toml`](../codex.config.toml)
 patterns). Do not commit live `P4PASSWD` or tickets.
 
-## 3. Restricted P4 user (Helix side — conceptual)
+## 3. Restricted P4 user (Helix side — templates)
 
 Have a Perforce admin create a **bot** user dedicated to agents, for example:
 
@@ -73,6 +73,20 @@ runbook. The important contract is: **even `p4 submit` on the CLI as that user
 must fail**.
 
 Human submitters keep separate accounts that _can_ submit after review in P4V.
+
+### Admin templates in this folder
+
+| File | Role |
+| ---- | ---- |
+| [`helix/protect.sample`](./helix/protect.sample) | Commented protections / permissions patterns (`ai-agents` / `p4pilot-agent`, write without submit) |
+| [`helix/triggers.sample`](./helix/triggers.sample) | Optional `change-submit` trigger table sketch (second layer) |
+| [`helix/check-submit-deny.sh`](./helix/check-submit-deny.sh) | Sample trigger body (bash) — decision dry-run; install help gated by env |
+| [`helix/check-submit-deny.ps1`](./helix/check-submit-deny.ps1) | Same for Windows trigger hosts |
+| [`VERIFY.md`](./VERIFY.md) | Real-demo verification checklist + **safe** vs forbidden commands |
+
+Scripts do **not** implement submit automation and will not rewrite production
+`p4 protect` / `p4 triggers` tables. Install guidance requires
+`P4PILOT_ALLOW_TRIGGER_INSTALL=1` and still only prints steps.
 
 ## 4. Recommended demo flow
 
@@ -99,6 +113,8 @@ write tools deny; `p4_status` / `p4_review` / `p4_audit_tail` allow.
 
 ## Related docs
 
+- [`VERIFY.md`](./VERIFY.md) — real-demo checklist (policy, bot submit deny, audit)
 - [`docs/SECURITY.md`](../../docs/SECURITY.md) — threat model and dual control
 - [`docs/TOOLS.md`](../../docs/TOOLS.md) — tool reference including `p4_audit_tail`
 - [`docs/SPEC.md`](../../docs/SPEC.md) — `SafetyPolicy`, audit, `ToolContext`
+- [`docs/BENCH.md`](../../docs/BENCH.md) — offline safety bench (mock CI)
