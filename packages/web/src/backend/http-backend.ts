@@ -4,6 +4,7 @@ import type {
   AssetInfoData,
   AuditEvent,
   P4PilotBackend,
+  PolicyInfo,
   ReviewData,
   WorkspaceSnapshot,
 } from "./types.js";
@@ -110,6 +111,10 @@ export class HttpBackend implements P4PilotBackend {
       `/api/audit${query}`,
     );
     return body.events;
+  }
+
+  getPolicy(): Promise<PolicyInfo> {
+    return this.#request("/api/policy");
   }
 
   async #request<T>(path: string, init?: RequestInit): Promise<T> {

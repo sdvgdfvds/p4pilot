@@ -62,4 +62,20 @@ describe("DemoStore", () => {
     expect(limited).toHaveLength(1);
     expect(limited[0]!.action).toBe("submit");
   });
+
+  it("returns a fixed restricted-agent demo policy with path allowlist", async () => {
+    const policy = await new DemoStore().getPolicy();
+    expect(policy).toMatchObject({
+      name: "restricted-agent",
+      protectBinaryAssets: true,
+      submitAllowed: false,
+    });
+    expect(policy.pathAllowlist).toEqual([
+      "//depot/game/src",
+      "/depot/game/src",
+    ]);
+    expect(policy.allowedActions).toContain("edit");
+    expect(policy.allowedActions).not.toContain("submit");
+    expect(policy.allowedActions).not.toContain("delete");
+  });
 });

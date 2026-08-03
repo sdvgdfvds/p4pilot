@@ -14,6 +14,7 @@ import type {
   BackendConnection,
   FileView,
   P4PilotBackend,
+  PolicyInfo,
   ReviewData,
 } from "../backend/types.js";
 import type { ChangelistSummary } from "@p4pilot/core/browser";
@@ -32,6 +33,7 @@ interface DemoContextValue {
   changelists: ChangelistSummary[];
   ready: boolean;
   connection: BackendConnection | null;
+  policy: PolicyInfo | null;
   error: string | null;
   pending: readonly string[];
   clearError: () => void;
@@ -61,15 +63,20 @@ export function DemoProvider({
   const [changelists, setChangelists] = useState<ChangelistSummary[]>([]);
   const [ready, setReady] = useState(false);
   const [connection, setConnection] = useState<BackendConnection | null>(null);
+  const [policy, setPolicy] = useState<PolicyInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<readonly string[]>([]);
   const pendingRef = useRef(new Set<string>());
 
   const refresh = useCallback(async () => {
-    const snapshot = await store.getWorkspace();
+    const [snapshot, nextPolicy] = await Promise.all([
+      store.getWorkspace(),
+      store.getPolicy(),
+    ]);
     setFiles(snapshot.files);
     setChangelists(snapshot.changelists);
     setConnection(snapshot.connection);
+    setPolicy(nextPolicy);
   }, [store]);
 
   const runOperation = useCallback(
@@ -100,6 +107,7 @@ export function DemoProvider({
       .catch((refreshError: unknown) => {
         if (active) {
           setConnection(null);
+          setPolicy(null);
           setError(errorMessage(refreshError));
         }
       })
@@ -174,6 +182,7 @@ export function DemoProvider({
     changelists,
     ready,
     connection,
+    policy,
     error,
     pending,
     clearError: () => setError(null),

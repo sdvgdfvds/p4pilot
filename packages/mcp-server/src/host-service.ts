@@ -181,6 +181,24 @@ async function assetInfo(client: P4Client, path: string) {
   };
 }
 
+/**
+ * Serialize {@link SafetyPolicy} for the read-only host API. Sets become
+ * sorted-stable arrays; empty/missing path allowlist becomes `null`.
+ */
+export function toPolicyInfo(policy: SafetyPolicy) {
+  const allowlist = policy.pathAllowlist;
+  return {
+    name: policy.name,
+    allowedActions: [...policy.allowedActions],
+    protectBinaryAssets: policy.protectBinaryAssets,
+    pathAllowlist:
+      allowlist === undefined || allowlist.length === 0
+        ? null
+        : [...allowlist],
+    submitAllowed: false as const,
+  };
+}
+
 async function workspace(client: P4Client, mode: "mock" | "live") {
   const [info, opened, changelists] = await Promise.all([
     client.info(),
@@ -286,6 +304,8 @@ export function createHostServer(options: HostServiceOptions) {
             ? 50
             : z.coerce.number().int().min(0).max(1_000).parse(rawLimit);
         sendJson(response, 200, { events: options.audit.tail(limit) });
+      } else if (request.method === "GET" && url.pathname === "/api/policy") {
+        sendJson(response, 200, toPolicyInfo(options.policy));
       } else if (
         request.method === "POST" &&
         url.pathname === "/api/smart-edit"

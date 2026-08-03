@@ -135,4 +135,23 @@ describe("HttpBackend", () => {
     const backend = new HttpBackend("http://127.0.0.1:4715", fetcher);
     await expect(backend.listAuditEvents()).resolves.toEqual([]);
   });
+
+  it("fetches the active safety policy from GET /api/policy", async () => {
+    const policy = {
+      name: "restricted-agent",
+      allowedActions: ["read", "edit", "add", "audit_tail"],
+      protectBinaryAssets: true,
+      pathAllowlist: ["//depot/game/src"],
+      submitAllowed: false as const,
+    };
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "http://127.0.0.1:4715/api/policy") {
+        return json(policy);
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    });
+    const backend = new HttpBackend("http://127.0.0.1:4715", fetcher);
+    await expect(backend.getPolicy()).resolves.toEqual(policy);
+  });
 });
