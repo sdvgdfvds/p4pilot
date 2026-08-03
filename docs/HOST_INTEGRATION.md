@@ -24,10 +24,33 @@ The process uses `P4PORT`, `P4USER`, and `P4CLIENT` from its environment. Add
 
 The UI has three tabs: **Dashboard** (pending changelists, opened files, safe
 asset metadata, smart checkout/revert), **Review** (changelist diffs), and
-**Audit** (recent policy/tool decisions via `GET /api/audit`). Smart checkout,
-revert, and changelist creation use the same core workflows as MCP. If the
-process or Perforce connection fails, the header reads `Disconnected` and the
-typed error appears in the page.
+**Audit** (recent policy/tool decisions via `GET /api/audit`). The header shows
+the active safety policy (name badge, submit blocked, optional path allowlist)
+from `GET /api/policy`. Smart checkout, revert, and changelist creation use the
+same core workflows as MCP. If the process or Perforce connection fails, the
+header reads `Disconnected` and the typed error appears in the page.
+
+### Policy API
+
+```http
+GET /api/policy
+```
+
+Returns the host's active `SafetyPolicy` as JSON:
+
+```json
+{
+  "name": "restricted-agent",
+  "allowedActions": ["read", "edit", "add", "revert", "reopen", "changelist_create", "changelist_list", "audit_tail"],
+  "protectBinaryAssets": true,
+  "pathAllowlist": ["//depot/game/src"],
+  "submitAllowed": false
+}
+```
+
+`pathAllowlist` is `null` when no path restriction is configured.
+`submitAllowed` is always `false` (human submit boundary). Read-only — there is
+no write route for policy. Demo mode returns a fixed restricted-agent sample.
 
 ### Audit API
 

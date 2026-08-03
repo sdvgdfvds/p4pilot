@@ -62,6 +62,18 @@ export interface BackendConnection {
   root?: string;
 }
 
+/**
+ * Active host safety policy (host `GET /api/policy`). Read-only status for the
+ * web UI — submit is always reported as blocked.
+ */
+export interface PolicyInfo {
+  name: string;
+  allowedActions: string[];
+  protectBinaryAssets: boolean;
+  pathAllowlist: string[] | null;
+  submitAllowed: false;
+}
+
 export interface WorkspaceSnapshot {
   connection: BackendConnection;
   files: FileView[];
@@ -77,4 +89,6 @@ export interface P4PilotBackend {
   review(change: string): Promise<ReviewData>;
   /** Recent policy/tool audit events, newest last. */
   listAuditEvents(limit?: number): Promise<AuditEvent[]>;
+  /** Active safety policy for the status badge (host `GET /api/policy`). */
+  getPolicy(): Promise<PolicyInfo>;
 }

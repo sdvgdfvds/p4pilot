@@ -790,6 +790,7 @@ from the same origin. Routes are limited to the UI workflows:
 - `GET /api/asset-info?path=...`
 - `GET /api/review?change=...`
 - `GET /api/audit?limit=N` — recent policy/tool audit events
+- `GET /api/policy` — active safety policy (`name`, `allowedActions`, `protectBinaryAssets`, `pathAllowlist`, `submitAllowed: false`)
 - `POST /api/smart-edit`, `/api/revert`, `/api/changelists`
 
 Responses use typed JSON errors. There is no submit route. Core behavior remains
@@ -820,6 +821,16 @@ export interface P4PilotBackend {
   review(change: string): Promise<ReviewData>;
   /** Recent policy/tool audit events (host `GET /api/audit`). Newest last. */
   listAuditEvents(limit?: number): Promise<AuditEvent[]>;
+  /** Active safety policy (host `GET /api/policy`) for the header status badge. */
+  getPolicy(): Promise<PolicyInfo>;
+}
+
+export interface PolicyInfo {
+  name: string;
+  allowedActions: string[];
+  protectBinaryAssets: boolean;
+  pathAllowlist: string[] | null;
+  submitAllowed: false;
 }
 ```
 
@@ -831,14 +842,17 @@ export interface P4PilotBackend {
   a seeded unified diff.
 - **Policy audit:** table of recent audit events (time, decision, tool, action,
   reason) with refresh; `DemoStore` seeds allow/deny samples for offline demo.
+- **Header policy status:** badge with policy name, always-on "submit blocked",
+  and optional path-allowlist summary from `getPolicy()`.
 
 ### 6.2 Async behavior
 
 `DemoProvider` owns the injected backend and refreshes view state after mutations.
 Every UI operation has a stable operation key, ignores duplicate in-flight
 requests, exposes a loading state, and maps failures to a dismissible error
-banner. The header also shows mock/live/disconnected connection state. Asset and
-review responses are guarded against stale updates.
+banner. The header also shows mock/live/disconnected connection state and the
+active safety policy badge. Asset and review responses are guarded against stale
+updates.
 
 ### 6.3 Deployment
 

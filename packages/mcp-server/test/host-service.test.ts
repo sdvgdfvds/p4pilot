@@ -220,6 +220,47 @@ describe("localhost host service", () => {
       await host.close();
     }
   });
+
+  it("exposes the active safety policy via GET /api/policy (read-only)", async () => {
+    const host = await start({
+      policy: {
+        ...READ_ONLY_POLICY,
+        pathAllowlist: ["//depot/src", "//depot/tools"],
+      },
+    });
+    try {
+      const response = await fetch(`${host.baseUrl}/api/policy`);
+      expect(response.ok).toBe(true);
+      await expect(response.json()).resolves.toEqual({
+        name: "read-only",
+        allowedActions: ["read", "changelist_list", "audit_tail"],
+        protectBinaryAssets: true,
+        pathAllowlist: ["//depot/src", "//depot/tools"],
+        submitAllowed: false,
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("serializes unset pathAllowlist as null on GET /api/policy", async () => {
+    const host = await start({ policy: DEFAULT_SAFETY_POLICY });
+    try {
+      const body = await fetch(`${host.baseUrl}/api/policy`).then((r) =>
+        r.json(),
+      );
+      expect(body).toMatchObject({
+        name: "default",
+        protectBinaryAssets: false,
+        pathAllowlist: null,
+        submitAllowed: false,
+      });
+      expect(body.allowedActions).toContain("edit");
+      expect(body.allowedActions).not.toContain("submit");
+    } finally {
+      await host.close();
+    }
+  });
 });
 
 describe("host CLI", () => {

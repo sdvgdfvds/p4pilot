@@ -12,6 +12,7 @@ import type {
   AuditEvent,
   FileView,
   P4PilotBackend,
+  PolicyInfo,
   ReviewData,
   WorkspaceSnapshot,
 } from "../backend/types.js";
@@ -22,8 +23,30 @@ export type {
   AssetInfoData,
   AuditEvent,
   FileView,
+  PolicyInfo,
   ReviewData,
 } from "../backend/types.js";
+
+/**
+ * Fixed offline demo policy — mirrors restricted-agent with a sample path
+ * allowlist so the header badge is meaningful without a host.
+ */
+export const DEMO_POLICY: PolicyInfo = {
+  name: "restricted-agent",
+  allowedActions: [
+    "read",
+    "edit",
+    "add",
+    "revert",
+    "reopen",
+    "changelist_create",
+    "changelist_list",
+    "audit_tail",
+  ],
+  protectBinaryAssets: true,
+  pathAllowlist: ["//depot/game/src", "/depot/game/src"],
+  submitAllowed: false,
+};
 
 /** Fixed demo timestamps so tests stay stable. */
 function seedAuditEvents(): AuditEvent[] {
@@ -175,6 +198,17 @@ export class DemoStore implements P4PilotBackend {
     if (limit === undefined) return this.#auditEvents.slice();
     if (limit <= 0) return [];
     return this.#auditEvents.slice(-limit);
+  }
+
+  async getPolicy(): Promise<PolicyInfo> {
+    return {
+      ...DEMO_POLICY,
+      allowedActions: [...DEMO_POLICY.allowedActions],
+      pathAllowlist:
+        DEMO_POLICY.pathAllowlist === null
+          ? null
+          : [...DEMO_POLICY.pathAllowlist],
+    };
   }
 
   #openedChange(depotFile: string): string | undefined {
