@@ -456,6 +456,19 @@ export interface SafetyPolicy {
   name: string;
   /** Actions this policy permits. Anything not listed is denied. */
   allowedActions: ReadonlySet<PolicyAction>;
+  /**
+   * When true, edit/add/reopen on binary or large-asset paths are denied
+   * (uses `classifyAsset`).
+   */
+  protectBinaryAssets: boolean;
+  /**
+   * If non-empty, every path supplied in the check context must match at
+   * least one prefix (separators normalized `\\` → `/`; exact path or nested
+   * under the prefix with a path boundary). Empty/undefined = no path
+   * restriction. Matching is case-sensitive (depot paths are case-sensitive
+   * on Helix by default).
+   */
+  pathAllowlist?: readonly string[];
 }
 
 export interface PolicyCheckContext {
@@ -475,15 +488,34 @@ export const DEFAULT_SAFETY_POLICY: SafetyPolicy;
 /**
  * Restricted agent: prepare edits/changelists; no delete, sync, or submit.
  * Allows: read, edit, add, revert, reopen, changelist_create, changelist_list,
- * audit_tail.
+ * audit_tail. `protectBinaryAssets: true`.
  */
 export const RESTRICTED_AGENT_POLICY: SafetyPolicy;
 
 /**
  * Inspection only: read, changelist_list, audit_tail.
  * (Review tools map to `read` and therefore remain allowed.)
+ * `protectBinaryAssets: true`.
  */
 export const READ_ONLY_POLICY: SafetyPolicy;
+
+/**
+ * Layer a path allowlist onto a base policy. Empty `prefixes` clears the
+ * allowlist (returns base unchanged when it had none).
+ */
+export function withPathAllowlist(
+  basePolicy: SafetyPolicy,
+  prefixes: readonly string[],
+): SafetyPolicy;
+
+/** Normalize separators for allowlist matching (`\\` → `/`). */
+export function normalizePolicyPath(path: string): string;
+
+/** True if `path` equals a prefix or is nested under it. */
+export function pathMatchesAllowlist(
+  path: string,
+  allowlist: readonly string[],
+): boolean;
 
 export function checkPolicy(
   policy: SafetyPolicy,
@@ -502,13 +534,31 @@ export function assertPolicyAllowed(
 ): void;
 ```
 
+**`checkPolicy` evaluation order:**
+
+1. **`submit` hard deny** — always, even if listed in `allowedActions` or on an
+   allowlisted path.
+2. **`allowedActions`** — action must be in the set.
+3. **`pathAllowlist`** (when defined and non-empty):
+   - Path-based mutations (`edit`, `add`, `delete`, `revert`, `sync`, `reopen`)
+     require a non-empty `context.paths`; missing/empty → deny.
+   - `read` / `changelist_create` / `changelist_list` / `audit_tail` do **not**
+     require paths; when paths are provided they are still checked.
+   - Every provided path must match at least one allowlist prefix.
+4. **`protectBinaryAssets`** — when true, `edit`/`add`/`reopen` deny binary /
+   large-asset paths via `classifyAsset`.
+
+Shipped presets leave `pathAllowlist` **undefined** (no path restriction).
+Studios layer sandbox prefixes with `withPathAllowlist` or via MCP env
+`P4PILOT_PATH_ALLOWLIST` (see §5.1).
+
 Preset summary:
 
-| Preset                    | `name`             | Allows (conceptually)             | Always denies              |
-| ------------------------- | ------------------ | --------------------------------- | -------------------------- |
-| `DEFAULT_SAFETY_POLICY`   | `default`          | All non-submit actions            | `submit`                   |
-| `RESTRICTED_AGENT_POLICY` | `restricted-agent` | prepare + review (no delete/sync) | `submit`, `delete`, `sync` |
-| `READ_ONLY_POLICY`        | `read-only`        | read / list / audit_tail          | all writes + `submit`      |
+| Preset                    | `name`             | Allows (conceptually)             | Always denies              | `pathAllowlist` |
+| ------------------------- | ------------------ | --------------------------------- | -------------------------- | --------------- |
+| `DEFAULT_SAFETY_POLICY`   | `default`          | All non-submit actions            | `submit`                   | undefined       |
+| `RESTRICTED_AGENT_POLICY` | `restricted-agent` | prepare + review (no delete/sync) | `submit`, `delete`, `sync` | undefined       |
+| `READ_ONLY_POLICY`        | `read-only`        | read / list / audit_tail          | all writes + `submit`      | undefined       |
 
 ### 4.12 Audit — `src/audit.ts`
 
