@@ -27,9 +27,15 @@ boundary against a full-privilege agent host.
 
 ## Audit purpose
 
-`AuditSink` / `MemoryAuditSink` and the MCP tool `p4_audit_tail` record recent
-policy decisions and mutating tool attempts for demos, debugging, and light
-accountability.
+`AuditSink` records recent policy decisions and tool attempts for demos,
+debugging, and light accountability:
+
+| Sink                  | When                                         |
+| --------------------- | -------------------------------------------- |
+| `MemoryAuditSink`     | Default (in-process ring buffer)             |
+| `JsonlFileAuditSink`  | When `P4PILOT_AUDIT_LOG=/path/to/file.jsonl` |
+| MCP `p4_audit_tail`   | Agent-readable tail of the process sink      |
+| HTTP `GET /api/audit` | Host UI / local tooling (loopback only)      |
 
 Audit is **not**:
 
@@ -69,7 +75,9 @@ Mitigations that actually work:
 3. P4 identity: dedicated service or bot user with **no submit** permission.
 4. Human opens P4V (or studio-approved UI), reviews the pending changelist, and
    submits with a **human** account that _does_ have submit rights.
-5. Optional: `p4_audit_tail` during demos to show what the agent attempted.
+5. Optional: `p4_audit_tail` / `P4PILOT_AUDIT_LOG` during demos to show what the
+   agent attempted.
+6. Offline safety invariants: see [`docs/BENCH.md`](./BENCH.md).
 
 See also [`examples/restricted-agent/README.md`](../examples/restricted-agent/README.md)
 for a conceptual setup walkthrough (no real secrets).

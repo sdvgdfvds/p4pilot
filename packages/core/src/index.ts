@@ -9,3 +9,4 @@ export * from "./changelist.js";
 export * from "./config.js";
 export * from "./policy.js";
 export * from "./audit.js";
+export * from "./jsonl-audit.js";

@@ -1,11 +1,12 @@
 import {
+  createAuditSinkFromEnv,
   DEFAULT_SAFETY_POLICY,
   ExecaP4Runner,
   loadConfig,
-  MemoryAuditSink,
   P4Client,
   READ_ONLY_POLICY,
   RESTRICTED_AGENT_POLICY,
+  type AuditSink,
   type P4PilotConfig,
   type SafetyPolicy,
 } from "@p4pilot/core";
@@ -18,7 +19,7 @@ export interface BuiltCore {
   config: P4PilotConfig;
   mock: boolean;
   policy: SafetyPolicy;
-  audit: MemoryAuditSink;
+  audit: AuditSink;
 }
 
 function cleanEnv(env: P4PilotConfig["env"]): Record<string, string> {
@@ -58,7 +59,7 @@ export function buildCore(argv: string[], env: NodeJS.ProcessEnv): BuiltCore {
   const config = loadConfig({ env });
   const mock = config.mock || argv.includes("--mock");
   const policy = resolveSafetyPolicy(env);
-  const audit = new MemoryAuditSink();
+  const audit = createAuditSinkFromEnv(env);
   if (mock) {
     return {
       client: new P4Client(new MockP4Runner(createMockDepot())),

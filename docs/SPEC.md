@@ -566,6 +566,40 @@ export class MemoryAuditSink implements AuditSink {
 accountability and demos — not a cryptographic ledger and not a substitute for
 Helix journal / server logs.
 
+Also in `src/audit.ts` (browser-safe):
+
+```ts
+/** Fan-out sink: record to both; tail from primary. */
+export class TeeAuditSink implements AuditSink {
+  constructor(primary: AuditSink, secondary: AuditSink);
+}
+```
+
+### 4.12.1 File-backed audit — `src/jsonl-audit.ts` (Node only)
+
+Not exported from the browser entry (uses `node:fs`).
+
+```ts
+export interface JsonlFileAuditSinkOptions {
+  filePath: string;
+  maxEvents?: number; // in-memory tail buffer, default 1000
+}
+
+export class JsonlFileAuditSink implements AuditSink {
+  readonly filePath: string; // resolved absolute path
+  constructor(opts: JsonlFileAuditSinkOptions);
+  record(event: AuditEvent): void;
+  tail(limit?: number): AuditEvent[];
+}
+
+/** `P4PILOT_AUDIT_LOG` set → JsonlFileAuditSink; else MemoryAuditSink. */
+export function createAuditSinkFromEnv(env: NodeJS.ProcessEnv): AuditSink;
+```
+
+`JsonlFileAuditSink` appends one JSON object per line. Empty path throws
+`INVALID_INPUT` at construction. Runtime write failures are swallowed so agent
+tools keep working; memory tail still updates.
+
 ## 5. Package: `@p4pilot/mcp-server`
 
 Thin MCP adapter over `@p4pilot/core`, built on `@modelcontextprotocol/sdk`
@@ -585,6 +619,8 @@ Windows demo controller **`p4pilot-demo`**.
   by the bundled `createMockDepot()` module so the server is demoable with zero
   Perforce setup. Each server receives independent mutable state.
 - Otherwise construct `ExecaP4Runner` from `loadConfig()`.
+- `P4PILOT_AUDIT_LOG=<path>` selects durable JSONL audit via
+  `createAuditSinkFromEnv` (default: in-memory only).
 - `P4PILOT_POLICY=default|restricted-agent|read-only` selects the in-process
   `SafetyPolicy` attached to `ToolContext` (default: `default` →
   `DEFAULT_SAFETY_POLICY` via `resolveSafetyPolicy`). Unknown values throw at

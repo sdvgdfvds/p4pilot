@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-145%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-162%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MCP, browser UI, and host integrations ready.** Core + MCP server
-> are fully tested — 145 tests, green in CI, and runnable today with zero
+> are fully tested — 162 tests, green in CI, and runnable today with zero
 > Perforce via `--mock`. The same UI can run as the live local workspace in P4V,
 > Unreal Editor, and Maya.
 >

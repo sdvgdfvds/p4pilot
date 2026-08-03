@@ -478,8 +478,30 @@ Branch: `feat/agent-runtime-safety`. Authoritative interfaces: `docs/SPEC.md`
 - [x] `examples/restricted-agent/README.md` — restricted profile + restricted
       P4 user (conceptual).
 
+### Task F: Offline safety bench
+
+**Files:** `packages/mcp-server/test/bench-safety.test.ts`, `docs/BENCH.md`.
+
+- [x] **Bench suite** — offline `MockP4Runner` + `MemoryAuditSink` scenarios:
+      submit invariant (no `p4_submit` / always deny), restricted deny delete &
+      binary edit, restricted allow text smart_edit, `p4_audit_tail` JSON
+      events, read-only blocks changelist create.
+- [x] **`docs/BENCH.md`** — what the bench covers, how to run, studio-trust
+      meaning of green.
+
+### Follow-ups (audit durability / host)
+
+- [x] **JSONL audit sink** — `JsonlFileAuditSink` + `P4PILOT_AUDIT_LOG` /
+      `createAuditSinkFromEnv`; `MemoryAuditSink` remains default.
+- [x] **Host audit surface** — host HTTP mutations use policy + audit;
+      `GET /api/audit` for local dashboards.
+- [ ] Publish bench as a named CI job / package script if useful for studios.
+- [ ] Restricted Helix user + server-side submit deny scripts for real-demo
+      (outside pure mock CI).
+
 ### Definition of done (implementation)
 
-- [ ] Core + MCP tests fully green offline (including policy/audit suites).
-- [ ] No `p4_submit` anywhere in the MCP/HTTP surface.
+- [x] Core + MCP tests fully green offline (including policy/audit suites).
+- [x] No `p4_submit` anywhere in the MCP/HTTP surface.
+- [x] Offline bench-safety suite green (`bench-safety.test.ts`).
 - [x] SPEC, SECURITY, TOOLS, and restricted-agent example match shipped names.

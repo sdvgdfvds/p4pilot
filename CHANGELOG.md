@@ -11,6 +11,10 @@ All notable changes to p4pilot are documented here. The format follows
 - Safety policy profiles (`default`, `restricted-agent`, `read-only`) with hard
   deny of `submit` and optional binary-asset open protection.
 - In-process audit log (`MemoryAuditSink`) and MCP tool `p4_audit_tail`.
+- Durable JSONL audit sink (`JsonlFileAuditSink`) via `P4PILOT_AUDIT_LOG`.
+- HTTP host policy enforcement + `GET /api/audit` on loopback host.
+- Offline safety bench suite (`packages/mcp-server/test/bench-safety.test.ts`,
+  `docs/BENCH.md`).
 - Env `P4PILOT_POLICY` / `P4PILOT_ACTOR` for agent runtime safety configuration.
 - Security model doc (`docs/SECURITY.md`) and restricted-agent example profile.
 

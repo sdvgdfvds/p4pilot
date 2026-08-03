@@ -82,3 +82,23 @@ export class MemoryAuditSink implements AuditSink {
     this.events.length = 0;
   }
 }
+
+/**
+ * Fan-out sink: records to both sinks; {@link tail} reads from the primary only.
+ * Browser-safe (no Node I/O).
+ */
+export class TeeAuditSink implements AuditSink {
+  constructor(
+    private readonly primary: AuditSink,
+    private readonly secondary: AuditSink,
+  ) {}
+
+  record(event: AuditEvent): void {
+    this.primary.record(event);
+    this.secondary.record(event);
+  }
+
+  tail(limit?: number): AuditEvent[] {
+    return this.primary.tail(limit);
+  }
+}

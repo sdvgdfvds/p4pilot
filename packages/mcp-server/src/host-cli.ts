@@ -62,12 +62,15 @@ export async function startHost(
   cwd: string,
 ): Promise<{ server: Server; url: string }> {
   const args = parseHostArgs(argv, cwd);
-  const { client, config, mock } = buildCore(argv, env);
+  const { client, config, mock, policy, audit } = buildCore(argv, env);
   const server = createHostServer({
     client,
     config,
     webRoot: args.webRoot,
     mode: mock ? "mock" : "live",
+    policy,
+    audit,
+    actor: env.P4PILOT_ACTOR ?? env.P4USER,
   });
   await new Promise<void>((resolveListen, reject) => {
     server.once("error", reject);
