@@ -8,11 +8,16 @@ import { extname, resolve, sep } from "node:path";
 
 import {
   buildChangelistDescription,
+  checkPolicy,
   classifyAsset,
+  createAuditEvent,
   ensureOpenForEdit,
   P4PilotError,
+  type AuditSink,
   type P4Client,
   type P4PilotConfig,
+  type PolicyAction,
+  type SafetyPolicy,
 } from "@p4pilot/core";
 import { z } from "zod";
 
@@ -21,6 +26,9 @@ export interface HostServiceOptions {
   config: P4PilotConfig;
   webRoot: string;
   mode: "mock" | "live";
+  policy: SafetyPolicy;
+  audit: AuditSink;
+  actor?: string;
 }
 
 const pathBody = z.object({ path: z.string().min(1) });
@@ -37,6 +45,13 @@ const contentTypes: Record<string, string> = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
 };
+
+interface HostPolicyMeta {
+  tool: string;
+  action: PolicyAction;
+  paths?: string[];
+  changelist?: string;
+}
 
 function sendJson(
   response: ServerResponse,
@@ -70,9 +85,80 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 
 function errorStatus(code: string): number {
   if (code === "INVALID_INPUT") return 400;
+  if (code === "POLICY_DENIED") return 403;
   if (code === "ASSET_NOT_FOUND" || code === "FILE_NOT_IN_CLIENT") return 404;
   if (code === "NOT_CONNECTED") return 503;
   return 502;
+}
+
+/**
+ * Enforce {@link HostServiceOptions.policy} before a mutating host API action
+ * and write a compact audit record (deny / success / error).
+ */
+async function withHostPolicyAndAudit<T>(
+  options: HostServiceOptions,
+  meta: HostPolicyMeta,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const decision = checkPolicy(options.policy, meta.action, {
+    paths: meta.paths,
+    changelist: meta.changelist,
+  });
+
+  if (!decision.allowed) {
+    const message =
+      decision.reason ??
+      `action "${meta.action}" denied by policy "${options.policy.name}"`;
+    options.audit.record(
+      createAuditEvent({
+        tool: meta.tool,
+        action: meta.action,
+        decision: "deny",
+        actor: options.actor,
+        paths: meta.paths,
+        changelist: meta.changelist,
+        message,
+      }),
+    );
+    throw new P4PilotError(
+      message,
+      "POLICY_DENIED",
+      `policy=${options.policy.name} action=${meta.action}`,
+    );
+  }
+
+  const started = Date.now();
+  try {
+    const result = await fn();
+    options.audit.record(
+      createAuditEvent({
+        tool: meta.tool,
+        action: meta.action,
+        decision: "success",
+        actor: options.actor,
+        paths: meta.paths,
+        changelist: meta.changelist,
+        durationMs: Date.now() - started,
+      }),
+    );
+    return result;
+  } catch (error) {
+    const durationMs = Date.now() - started;
+    const message = error instanceof Error ? error.message : String(error);
+    options.audit.record(
+      createAuditEvent({
+        tool: meta.tool,
+        action: meta.action,
+        decision: "error",
+        actor: options.actor,
+        paths: meta.paths,
+        changelist: meta.changelist,
+        durationMs,
+        message: message.slice(0, 200),
+      }),
+    );
+    throw error;
+  }
 }
 
 async function assetInfo(client: P4Client, path: string) {
@@ -92,6 +178,22 @@ async function assetInfo(client: P4Client, path: string) {
     headRev: stat.headRev,
     shouldRead: asset.shouldRead,
     reason: asset.reason,
+  };
+}
+
+/**
+ * Serialize {@link SafetyPolicy} for the read-only host API. Sets become
+ * sorted-stable arrays; empty/missing path allowlist becomes `null`.
+ */
+export function toPolicyInfo(policy: SafetyPolicy) {
+  const allowlist = policy.pathAllowlist;
+  return {
+    name: policy.name,
+    allowedActions: [...policy.allowedActions],
+    protectBinaryAssets: policy.protectBinaryAssets,
+    pathAllowlist:
+      allowlist === undefined || allowlist.length === 0 ? null : [...allowlist],
+    submitAllowed: false as const,
   };
 }
 
@@ -193,6 +295,15 @@ export function createHostServer(options: HostServiceOptions) {
           200,
           await options.client.describe(change, { diff: true }),
         );
+      } else if (request.method === "GET" && url.pathname === "/api/audit") {
+        const rawLimit = url.searchParams.get("limit");
+        const limit =
+          rawLimit === null
+            ? 50
+            : z.coerce.number().int().min(0).max(1_000).parse(rawLimit);
+        sendJson(response, 200, { events: options.audit.tail(limit) });
+      } else if (request.method === "GET" && url.pathname === "/api/policy") {
+        sendJson(response, 200, toPolicyInfo(options.policy));
       } else if (
         request.method === "POST" &&
         url.pathname === "/api/smart-edit"
@@ -201,16 +312,34 @@ export function createHostServer(options: HostServiceOptions) {
         sendJson(
           response,
           200,
-          await ensureOpenForEdit(
-            options.client,
-            body.path,
-            body.changelist ? { changelist: body.changelist } : undefined,
+          await withHostPolicyAndAudit(
+            options,
+            {
+              tool: "host.smart-edit",
+              action: "edit",
+              paths: [body.path],
+              changelist: body.changelist,
+            },
+            () =>
+              ensureOpenForEdit(
+                options.client,
+                body.path,
+                body.changelist ? { changelist: body.changelist } : undefined,
+              ),
           ),
         );
       } else if (request.method === "POST" && url.pathname === "/api/revert") {
         const body = pathBody.parse(await readJson(request));
         sendJson(response, 200, {
-          reverted: await options.client.revert([body.path]),
+          reverted: await withHostPolicyAndAudit(
+            options,
+            {
+              tool: "host.revert",
+              action: "revert",
+              paths: [body.path],
+            },
+            () => options.client.revert([body.path]),
+          ),
         });
       } else if (
         request.method === "POST" &&
@@ -222,7 +351,14 @@ export function createHostServer(options: HostServiceOptions) {
           options.config.defaultChangelistPrefix,
         );
         sendJson(response, 200, {
-          change: await options.client.newChangelist(description),
+          change: await withHostPolicyAndAudit(
+            options,
+            {
+              tool: "host.changelists",
+              action: "changelist_create",
+            },
+            () => options.client.newChangelist(description),
+          ),
         });
       } else if (url.pathname.startsWith("/api/")) {
         sendJson(response, 404, {

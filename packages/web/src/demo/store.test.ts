@@ -41,4 +41,41 @@ describe("DemoStore", () => {
     const file = review.files.find((f) => f.depotFile.endsWith("player.cpp"))!;
     expect(file.rows.some((r) => r.type === "add")).toBe(true);
   });
+
+  it("seeds realistic allow/deny audit events for the demo panel", async () => {
+    const events = await new DemoStore().listAuditEvents();
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({
+      tool: "p4_smart_edit",
+      action: "edit",
+      decision: "success",
+    });
+    expect(events[1]).toMatchObject({
+      action: "delete",
+      decision: "deny",
+    });
+    expect(events[2]).toMatchObject({
+      action: "submit",
+      decision: "deny",
+    });
+    const limited = await new DemoStore().listAuditEvents(1);
+    expect(limited).toHaveLength(1);
+    expect(limited[0]!.action).toBe("submit");
+  });
+
+  it("returns a fixed restricted-agent demo policy with path allowlist", async () => {
+    const policy = await new DemoStore().getPolicy();
+    expect(policy).toMatchObject({
+      name: "restricted-agent",
+      protectBinaryAssets: true,
+      submitAllowed: false,
+    });
+    expect(policy.pathAllowlist).toEqual([
+      "//depot/game/src",
+      "/depot/game/src",
+    ]);
+    expect(policy.allowedActions).toContain("edit");
+    expect(policy.allowedActions).not.toContain("submit");
+    expect(policy.allowedActions).not.toContain("delete");
+  });
 });

@@ -1,0 +1,111 @@
+# p4pilot — sample Helix protections / permissions notes for a restricted agent user
+#
+# PURPOSE
+#   Give studio admins a starting point for a bot identity that can open/edit
+#   files for agent demos but CANNOT submit. Exact syntax and capability flags
+#   vary by Helix Core version and site policy — treat every line as a template,
+#   not a drop-in for production.
+#
+# SAFETY
+#   - No real hostnames, tickets, or passwords.
+#   - Do NOT paste this file into `p4 protect` without review by a Perforce admin.
+#   - Test on a sandbox server first.
+#
+# HOW TO APPLY (admin runbook sketch — adapt to your site)
+#   1. Create user  p4pilot-agent   (or your preferred bot name)
+#   2. Create group ai-agents       (optional but recommended)
+#   3. Add the bot user to the group
+#   4. Merge adapted lines into the protections table (p4 protect)
+#   5. Verify with VERIFY.md (safe read-only checks + controlled deny test)
+#
+# ILLUSTRATIVE NAMES ONLY
+#   User:  p4pilot-agent
+#   Group: ai-agents
+#   Depot sandbox path example: //depot/sandbox/agent-demo/...
+#   Human submitters keep separate accounts with normal write+submit rights.
+
+# =============================================================================
+# Recommended approach (summary)
+# =============================================================================
+#
+# 1) Prefer a dedicated bot user + group over reusing human accounts.
+# 2) Grant the bot only the depot paths the agent needs (sandbox first).
+# 3) Deny submit server-side for that user/group (protections and/or triggers).
+# 4) Keep human submit rights on a different user used in P4V after review.
+# 5) Optionally add a change-submit trigger as a second layer (see triggers.sample).
+#
+# Protections alone may be enough on many sites. Triggers are a belt-and-suspenders
+# option when you want an explicit, auditable "this user may never submit" gate.
+
+# =============================================================================
+# Example protections table fragments (COMMENTED — adapt before use)
+# =============================================================================
+#
+# Protections are ordered; first matching line usually wins. Put more-specific
+# denies/allows carefully relative to your existing table. The forms below are
+# common patterns — confirm against `p4 help protect` for your server version.
+#
+# --- Group membership (separate from protect table) ---
+#   p4 group ai-agents
+#     Users:
+#       p4pilot-agent
+#
+# --- Path-limited write for the bot group (sandbox) ---
+# write group ai-agents * //depot/sandbox/agent-demo/...
+#
+# --- Broader read for review tools (optional) ---
+# read  group ai-agents * //depot/...
+#
+# --- Explicit open/write without implying submit rights on some sites ---
+# Some admins use `open` / `write` for edit rights and rely on a separate
+# mechanism to block submit. Others use super/admin-only submit paths.
+# Confirm which mode your studio already uses.
+#
+# open  user p4pilot-agent * //depot/sandbox/agent-demo/...
+# write user p4pilot-agent * //depot/sandbox/agent-demo/...
+#
+# --- Explicit list/read for status and review ---
+# list  user p4pilot-agent * //depot/sandbox/agent-demo/...
+# read  user p4pilot-agent * //depot/sandbox/agent-demo/...
+#
+# --- What NOT to grant the bot ---
+#   - super / admin
+#   - unrestricted write on production game content paths
+#   - any protection that effectively allows submit if your table equates
+#     write with submit rights without a further gate
+#
+# If your site uses a "submitters" group that alone may submit, simply omit
+# p4pilot-agent from that group and document that as the control.
+
+# =============================================================================
+# Permissions-style notes (when your site uses permissions, not only protect)
+# =============================================================================
+#
+# Some deployments combine protections with permissions / ownership / stream
+# ACLs / custom review gates. Whatever the mechanism, the contract for p4pilot
+# demos is:
+#
+#   AS p4pilot-agent:
+#     - may open/edit/add within the allowed sandbox path (if the demo needs it)
+#     - must FAIL on submit (CLI and any GUI using that identity)
+#   AS human-reviewer:
+#     - may submit the pending changelist after review in P4V
+#
+# Document the chosen mechanism in your studio runbook; do not invent a second
+# source of truth in application code.
+
+# =============================================================================
+# Cross-checks after edit
+# =============================================================================
+#
+# Safe (non-destructive) checks — see VERIFY.md for the full checklist:
+#   p4 -u p4pilot-agent info
+#   p4 -u p4pilot-agent protects -m
+#   p4 -u p4pilot-agent protects //depot/sandbox/agent-demo/...
+#
+# Controlled deny test (manual, not automated in CI):
+#   Attempt submit as p4pilot-agent on a throwaway sandbox changelist and
+#   confirm the server rejects it. Do this only on a non-production server
+#   with admin approval. Never script production submits from this repo.
+#
+# Second layer: helix/triggers.sample and check-submit-deny.* scripts.

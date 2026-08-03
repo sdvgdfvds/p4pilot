@@ -43,6 +43,24 @@ npm run test:coverage
 npm run build
 ```
 
+### Coverage gate
+
+`npm run test:coverage` is a CI quality gate (Node 22 matrix step in
+`.github/workflows/ci.yml`). Root `vitest.config.ts` sets global floors:
+
+| Metric     | Floor |
+| ---------- | ----: |
+| Statements |   80% |
+| Lines      |   80% |
+| Functions  |   80% |
+| Branches   |   55% |
+
+Vitest exits non-zero when any metric falls below its floor—do not lower these
+to green a PR. Prefer adding tests (or small, targeted coverage for trivial
+uncovered paths) instead. Offline only: use `MockP4Runner`; never require a
+real `p4` binary. For agent-safety invariants see also
+`npm run test:bench-safety` and [`docs/BENCH.md`](./docs/BENCH.md).
+
 Use Conventional Commit messages such as `feat:`, `fix:`, `test:`, `docs:`,
 `chore:`, or `ci:`.
 

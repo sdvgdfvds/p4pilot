@@ -13,6 +13,10 @@ import { defineConfig } from "vitest/config";
 // while core and mcp-server run as plain Node projects.
 export default defineConfig({
   test: {
+    // Global coverage floors for CI (`npm run test:coverage`). Vitest fails the
+    // run when any metric drops below these values. Floors sit intentionally
+    // below current overall ~85% statements so the gate is useful without flake;
+    // branches are lower because UI/host edge paths are thinner than core/MCP.
     coverage: {
       exclude: ["packages/core/dist/**"],
       thresholds: {

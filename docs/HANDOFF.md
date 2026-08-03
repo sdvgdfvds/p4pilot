@@ -6,6 +6,8 @@
 
 **线上 Demo**：<https://sdvgdfvds.github.io/p4pilot/>
 
+**当前分支**：`feat/agent-runtime-safety`（相对 `origin/main` 的 agent 运行时安全工作）
+
 ## 当前状态
 
 p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 P4V WebView
@@ -13,24 +15,50 @@ p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 
 准备公开包 `0.2.0` release candidate，具备完整的格式、lint、coverage、测试、
 构建和 npm pack 门禁。GitHub Actions CI 和 GitHub Pages 部署已启用。
 
-已交付内容：
+### 进行中：Agent runtime safety（本分支，持续合入）
+
+目标：为 MCP / agent 运行时增加**进程内策略门闩 + 审计**，并写清安全边界诚实性
+（产品永不暴露 `p4_submit`；带 shell + 凭据的 agent 仍可绕过；生产必须叠加
+受限 P4 用户与服务端 submit deny）。
+
+契约摘要（权威接口见 `docs/SPEC.md` §4.11–§4.12、§5.1.1、§5.2）：
+
+- `@p4pilot/core`：`SafetyPolicy`（三档预设、`pathAllowlist`、`shelve` action、
+  硬拒绝 `submit`）、audit（Memory + JSONL）、`P4Client.shelve`。
+- `@p4pilot/mcp-server`：**21** 个 MCP 工具（含 `p4_audit_tail`、
+  `p4_policy_info`、`p4_shelve`）；**仍无** `p4_submit`；
+  host `GET /api/audit`、`GET /api/policy`。
+- `@p4pilot/web`：Dashboard | Review | Audit；Header 展示策略 badge /
+  submit blocked / path allowlist。
+- CI：`safety-bench` job + coverage 门槛（stmts/lines/funcs ≥80%，branches ≥55%）。
+- 示例：`examples/restricted-agent/helix/*` + `VERIFY.md`。
+
+**测试**：全仓 **198** 离线测试绿；`npm run typecheck` / `test:bench-safety` /
+`test:coverage` 通过。
+
+本轮已合入分支：`feat/mcp-policy-info`、`feat/mcp-shelve`、
+`feat/web-policy-status`、`chore/ci-coverage-gate`（以及更早的 audit UI /
+path allowlist / helix / bench CI）。
+
+**状态：本里程碑活已齐，准备 PR → `main`。** 合入后勿在 main 直接开发；
+可选真实 Helix 联调（受限 bot；**禁止**自动化生产 submit）。
+
+已交付内容（`main` / v0.2.0 基线 + 本分支安全层）：
 
 - `@p4pilot/core`：Perforce runner、ztag parser、typed client、auto-checkout、
-  asset guard、shelved review、Unreal asset dependency traversal、changelist
-  helpers，以及离线 `MockP4Runner`。
-- `@p4pilot/mcp-server`：18 个 MCP 工具，并提供 loopback-only
-  `p4pilot-host`；`--mock` 模式无需 Perforce。
-- npm：registry 当前公开版本仍为 `@p4pilot/core@0.1.1` 与
-  `@p4pilot/mcp-server@0.1.1`；`0.2.0` manifests 已准备，发布需要 npm 账号授权。
-- `@p4pilot/web`：统一的 mock/HTTP backend 界面，包含工作区仪表盘、smart
-  checkout、资产信息、错误/断线状态和 changelist review。HttpBackend 默认
-  fetcher 通过 `globalThis.fetch` 绑定，避免嵌入式 WebView 的 Illegal
-  invocation。
-- 宿主：P4V HTML Tab、Unreal Editor `SWebBrowser` 插件、Maya Qt WebEngine
-  dock 都复用同一个 Web build 和本地真实后端；Windows 一键启动/重置脚本位于
-  `hosts/p4v`。
-- 测试：根目录共 119 个用例，全部离线运行；CI 不连接真实 Perforce。
-- 工程门禁：Prettier、ESLint、TypeScript、Vitest coverage、build 和 npm pack。
+  asset guard、`shelve`、Unreal asset dependency traversal、changelist helpers、
+  safety policy（含 `pathAllowlist` / `shelve` action）、audit（Memory + JSONL）、
+  离线 `MockP4Runner`。
+- `@p4pilot/mcp-server`：**21** 个 MCP 工具（含 `p4_audit_tail`、`p4_policy_info`、
+  `p4_shelve`；**无** `p4_submit`）；loopback-only `p4pilot-host`（`/api/audit`、
+  `/api/policy`）；`--mock` 模式无需 Perforce。
+- npm：公开包 `@p4pilot/core@0.2.0` / `@p4pilot/mcp-server@0.2.0`（本分支未再
+  bump 版本；合入 main 后若要发 0.3.0 再单独 release）。
+- `@p4pilot/web`：Dashboard | Review | Audit；Header 策略状态；smart checkout、
+  资产信息、changelist review；HttpBackend 经 `globalThis.fetch` 绑定。
+- 宿主：P4V / Unreal / Maya 复用同一 Web build；`hosts/p4v` 一键启动/重置。
+- 测试：根目录 **198** 离线用例；CI 含 `safety-bench` + coverage 门槛。
+- 工程门禁：Prettier、ESLint、TypeScript、Vitest coverage、build、npm pack。
 
 ## 接手方式
 
@@ -85,11 +113,12 @@ PR #5、#6、#7 已合并到 `main`。`release/v0.2.0` 只更新公开包版本�
 公开安装路径已验证：`npx @p4pilot/mcp-server --mock` 可从官方 registry 安装并
 启动服务器。
 
-## 后续产品化方向
+## 后续产品化方向（合入 main 之后）
 
-- 增加受限 Perforce 演示用户与服务端 Submit 禁止规则。
-- 增加操作审计日志和审批机制。
-- 交付真实 Unreal Asset Registry 导出 commandlet/脚本。
+- 可选：在真实/演示 p4d 上按 `examples/restricted-agent/VERIFY.md` 做人工联调
+  （**禁止**把生产 submit 写成自动化）。
+- 可选：0.3.0 release（本分支功能合入后的版本号决策）。
+- 可选：可插拔 `AuditSink`、审批工作流、真实 UE Asset Registry commandlet。
 - 在装有 Unreal Editor 和 Maya 的授权工作站上完成真实宿主验证。
 - 改善 MCP/HTTP 身份验证和团队部署方案。
 

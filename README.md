@@ -9,7 +9,7 @@
 Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 
 [![CI](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sdvgdfvds/p4pilot/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-119%20passing-brightgreen)](#see-it-in-action)
+[![tests](https://img.shields.io/badge/tests-162%20passing-brightgreen)](#see-it-in-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-blueviolet)](https://modelcontextprotocol.io)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-3c873a)](https://nodejs.org)
@@ -20,7 +20,7 @@ Works with **Claude Code**, **Cursor**, and **Codex** — no Git required.
 ---
 
 > **✅ Status: MCP, browser UI, and host integrations ready.** Core + MCP server
-> are fully tested — 119 tests, green in CI, and runnable today with zero
+> are fully tested — 162 tests, green in CI, and runnable today with zero
 > Perforce via `--mock`. The same UI can run as the live local workspace in P4V,
 > Unreal Editor, and Maya.
 >
@@ -55,7 +55,7 @@ edit	//depot/game/src/main.cpp (change 813)
 edit	//depot/game/Content/Hero.uasset (change 813)
 ```
 
-Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 18
+Real output from `npx @p4pilot/mcp-server --mock` — no Perforce required. All 20
 tools are documented in [`docs/TOOLS.md`](./docs/TOOLS.md).
 
 ## Why this exists
@@ -96,11 +96,30 @@ All exposed as **MCP tools**, so any MCP client (Claude Code, Cursor, Codex,
 JetBrains, …) gets Perforce fluency with zero custom glue. See the full
 [tool reference](./docs/TOOLS.md).
 
-### Human-controlled submission
+### Human-controlled submission & agent safety
 
 p4pilot deliberately stops at prepared, reviewable changelists. It does not
 expose `p4 submit`: a human reviews the diff and submits through their normal
 Perforce workflow. This is a product safety boundary, not a missing tool.
+
+Agent runtime safety (MCP + local host) layers on top of that boundary:
+
+- **Policy presets** — `default`, `restricted-agent`, and `read-only` via
+  `P4PILOT_POLICY` (submit is always hard-denied).
+- **Path allowlist** — optional `P4PILOT_PATH_ALLOWLIST` / `pathAllowlist` to
+  keep agent work inside chosen depot or workspace prefixes.
+- **Shelve handoff** — `p4_shelve` prepares a shelf for human review; agents
+  never get a submit tool (`p4_policy_info` reports `submitAllowed: false`).
+- **Audit trail** — in-process events, optional JSONL file (`P4PILOT_AUDIT_LOG`),
+  `p4_audit_tail`, host `GET /api/audit`, and the Web **Audit** tab.
+- **Visible policy** — host `GET /api/policy` + Header badge (policy name,
+  submit blocked, allowlist summary).
+- **Offline safety bench** — CI job + `npm run test:bench-safety` (MockP4Runner
+  only; no real Perforce).
+
+Honest limits and studio dual-control recommendations:
+[`docs/SECURITY.md`](./docs/SECURITY.md). Bench scenarios and green-signal
+meaning: [`docs/BENCH.md`](./docs/BENCH.md).
 
 ## How it compares
 
@@ -179,7 +198,9 @@ node packages/mcp-server/dist/http.js --host 127.0.0.1 --port 4715 --web-root pa
 Open `http://127.0.0.1:4715/p4pilot/?backend=local`, or embed that URL using the
 provided [P4V, Unreal Editor, or Maya host](./docs/HOST_INTEGRATION.md). The page
 uses the active Perforce environment and reports explicit disconnected states.
-The supplied Windows P4V demo also includes terminal-free `start-demo.vbs` and
+Tabs: **Dashboard**, **Review**, and **Audit** (recent policy/tool decisions
+from `GET /api/audit`; demo mode seeds sample events offline). The supplied
+Windows P4V demo also includes terminal-free `start-demo.vbs` and
 `reset-demo.vbs` launchers under `hosts/p4v`.
 
 ## Architecture
@@ -208,7 +229,9 @@ The supplied Windows P4V demo also includes terminal-free `start-demo.vbs` and
 
 See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and
 [`docs/SPEC.md`](./docs/SPEC.md) for the design, [`docs/TOOLS.md`](./docs/TOOLS.md)
-for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
+for the tool reference, [`docs/SECURITY.md`](./docs/SECURITY.md) for the security
+model, [`docs/BENCH.md`](./docs/BENCH.md) for the offline safety bench, and
+[`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 
 ## Roadmap
 
@@ -219,12 +242,14 @@ for the tool reference, and [`docs/PLAN.md`](./docs/PLAN.md) for the build plan.
 - [x] Shared live panel in P4V HTML Tab, Unreal `SWebBrowser`, and Maya Qt WebEngine
 - [x] Shelved-changelist review workflow (`p4_shelved_review`)
 - [x] Asset dependency surfacing via injectable Unreal Asset Registry provider
+- [x] Agent runtime safety: policy presets, audit, path allowlist, Audit UI, offline bench CI
 
 ## Contributing
 
 This project is built test-first. See [`AGENTS.md`](./AGENTS.md) for the
 execution contract, [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for the
-design, and [`docs/PLAN.md`](./docs/PLAN.md) for open tasks. PRs welcome.
+design, [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the coverage gate and PR
+checklist, and [`docs/PLAN.md`](./docs/PLAN.md) for open tasks. PRs welcome.
 
 ## License
 

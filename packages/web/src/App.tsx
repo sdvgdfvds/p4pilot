@@ -1,12 +1,21 @@
 import { useState } from "react";
-import { AlertCircle, GitPullRequest, LayoutDashboard, X } from "lucide-react";
+import {
+  AlertCircle,
+  ClipboardList,
+  GitPullRequest,
+  LayoutDashboard,
+  X,
+} from "lucide-react";
 import { Header } from "./components/Header.js";
 import { Dashboard } from "./components/Dashboard.js";
 import { ReviewView } from "./components/ReviewView.js";
+import { AuditView } from "./components/AuditView.js";
 import { HttpBackend } from "./backend/http-backend.js";
 import type { P4PilotBackend } from "./backend/types.js";
 import { DemoStore } from "./demo/store.js";
 import { DemoProvider, useDemo } from "./demo/useDemo.js";
+
+export type WorkspaceTab = "dashboard" | "review" | "audit";
 
 export function backendFromLocation(location: Location): P4PilotBackend {
   const configured = new URLSearchParams(location.search).get("backend");
@@ -20,7 +29,7 @@ export function backendFromLocation(location: Location): P4PilotBackend {
 }
 
 function Workspace() {
-  const [tab, setTab] = useState<"dashboard" | "review">("dashboard");
+  const [tab, setTab] = useState<WorkspaceTab>("dashboard");
   const { clearError, error } = useDemo();
   return (
     <main className="app-shell" data-testid="app">
@@ -41,6 +50,13 @@ function Workspace() {
           >
             <GitPullRequest size={16} /> Review
           </button>
+          <button
+            className={tab === "audit" ? "active" : undefined}
+            aria-current={tab === "audit" ? "page" : undefined}
+            onClick={() => setTab("audit")}
+          >
+            <ClipboardList size={16} /> Audit
+          </button>
         </div>
       </nav>
       {error && (
@@ -60,7 +76,9 @@ function Workspace() {
         </div>
       )}
       <div className="workspace-inner workspace-content">
-        {tab === "dashboard" ? <Dashboard /> : <ReviewView />}
+        {tab === "dashboard" && <Dashboard />}
+        {tab === "review" && <ReviewView />}
+        {tab === "audit" && <AuditView />}
       </div>
     </main>
   );

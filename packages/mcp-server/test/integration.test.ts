@@ -2,6 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   DEFAULT_ASSET_GUARD_CONFIG,
+  DEFAULT_SAFETY_POLICY,
+  MemoryAuditSink,
   P4Client,
   StaticAssetDependencyProvider,
   type P4PilotConfig,
@@ -70,6 +72,8 @@ async function connectClient(
     config,
     search: async () => [],
     assetDependencies: dependencyProvider,
+    policy: DEFAULT_SAFETY_POLICY,
+    audit: new MemoryAuditSink(),
   });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -102,13 +106,21 @@ describe("mcp-server integration (InMemoryTransport)", () => {
         "p4_describe",
         "p4_review",
         "p4_shelved_review",
+        "p4_shelve",
         "p4_asset_info",
         "p4_asset_dependencies",
         "p4_filelog",
         "p4_search",
+        "p4_audit_tail",
+        "p4_policy_info",
       ]),
     );
-    expect(tools).toHaveLength(18);
+    expect(names).not.toContain("p4_submit");
+    // Keep in sync with REGISTERED_TOOL_NAMES (dynamic when other tools land).
+    const { REGISTERED_TOOL_NAMES } = await import("../src/tools.js");
+    expect(tools).toHaveLength(REGISTERED_TOOL_NAMES.length);
+    expect(names).toContain("p4_shelve");
+    expect(names).toContain("p4_policy_info");
   });
 
   it("p4_smart_edit opens a file end-to-end", async () => {
@@ -122,6 +134,40 @@ describe("mcp-server integration (InMemoryTransport)", () => {
       runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened
         ?.action,
     ).toBe("edit");
+  });
+
+  it("p4_shelve shelves opened files for human review", async () => {
+    const runner = seed();
+    // Open a file on a pending CL, then shelve via MCP.
+    await runner.run(["edit", "-c", "812", "/ws/a.c"]);
+    runner.state.changelists = [
+      {
+        change: "812",
+        description: "wip for shelve",
+        status: "pending",
+        user: "alice",
+        client: "ws",
+        files: ["//depot/a.c"],
+      },
+    ];
+    const client = await connectClient(runner);
+    const result = await client.callTool({
+      name: "p4_shelve",
+      arguments: { change: "812" },
+    });
+    expect(result.isError).not.toBe(true);
+    const text = (result.content as Array<{ type: string; text: string }>)[0]!
+      .text;
+    expect(text).toContain("Shelved 1 file(s) on change 812");
+    expect(text).toMatch(/not submitted/i);
+    expect(
+      runner.state.shelvedChangelists?.some((item) => item.change === "812"),
+    ).toBe(true);
+    // Still open in workspace (not submit).
+    expect(
+      runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened
+        ?.change,
+    ).toBe("812");
   });
 
   it("routes shelved review without changing workspace state", async () => {

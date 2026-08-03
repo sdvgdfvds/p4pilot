@@ -48,6 +48,13 @@ export interface ShelvedReviewResult extends DescribeResult {
   reviewType: "shelved";
 }
 
+/** Result of shelving opened files on a pending changelist for human review. */
+export interface ShelveResult {
+  change: string;
+  /** Files that were written into the shelf (count = files.length). */
+  files: OpenedFile[];
+}
+
 export class P4PilotError extends Error {
   constructor(
     message: string,
@@ -67,4 +74,5 @@ export type P4PilotErrorCode =
   | "NO_SHELVED_FILES"
   | "ASSET_DEPENDENCIES_UNAVAILABLE"
   | "ASSET_NOT_FOUND"
-  | "INVALID_INPUT";
+  | "INVALID_INPUT"
+  | "POLICY_DENIED";

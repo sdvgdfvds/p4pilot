@@ -226,6 +226,43 @@ describe("P4Client", () => {
     ).rejects.toMatchObject({ code: "NO_SHELVED_FILES" });
   });
 
+  it("shelve() shelves opened files on a pending changelist", async () => {
+    const runner = seed();
+    const client = new P4Client(runner);
+    await client.edit(["/ws/a.c"], { changelist: "10" });
+
+    const result = await client.shelve("10");
+
+    expect(result.change).toBe("10");
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]!.depotFile).toBe("//depot/a.c");
+    expect(result.files[0]!.action).toBe("edit");
+    expect(result.files[0]!.change).toBe("10");
+
+    // Default Helix behavior: workspace opens remain after shelve.
+    expect(
+      runner.state.files.find((file) => file.clientFile === "/ws/a.c")?.opened,
+    ).toEqual({ action: "edit", change: "10" });
+
+    const shelf = runner.state.shelvedChangelists?.find(
+      (item) => item.change === "10",
+    );
+    expect(shelf?.files.map((file) => file.depotFile)).toEqual(["//depot/a.c"]);
+  });
+
+  it("shelve() can limit paths and fails when nothing is open", async () => {
+    const runner = seed();
+    const client = new P4Client(runner);
+    await client.edit(["/ws/a.c"], { changelist: "10" });
+
+    const limited = await client.shelve("10", { paths: ["/ws/a.c"] });
+    expect(limited.files).toHaveLength(1);
+
+    await expect(client.shelve("999")).rejects.toMatchObject({
+      code: "P4_COMMAND_FAILED",
+    });
+  });
+
   it("filelog() returns revision history", async () => {
     const client = new P4Client(seed());
     const log = await client.filelog("/ws/a.c");

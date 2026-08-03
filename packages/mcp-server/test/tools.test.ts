@@ -1,11 +1,17 @@
 import {
   StaticAssetDependencyProvider,
   DEFAULT_ASSET_GUARD_CONFIG,
+  DEFAULT_SAFETY_POLICY,
+  MemoryAuditSink,
   P4Client,
+  READ_ONLY_POLICY,
+  RESTRICTED_AGENT_POLICY,
+  withPathAllowlist,
   type P4PilotConfig,
+  type SafetyPolicy,
 } from "@p4pilot/core";
 import { MockP4Runner } from "@p4pilot/core/testing";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   assetInfo,
@@ -17,10 +23,12 @@ import {
   describe as describeChange,
   edit,
   filelog,
+  policyInfo,
   reopen,
   revert,
   review,
   search,
+  shelve,
   shelvedReview,
   smartEdit,
   status,
@@ -92,12 +100,15 @@ function makeCtx(
   runner: MockP4Runner,
   searcher: Searcher = async () => [],
   dependencyProvider = new StaticAssetDependencyProvider("empty", []),
+  policy: SafetyPolicy = DEFAULT_SAFETY_POLICY,
 ): ToolContext {
   return {
     client: new P4Client(runner),
     config,
     search: searcher,
     assetDependencies: dependencyProvider,
+    policy,
+    audit: new MemoryAuditSink(),
   };
 }
 
@@ -234,6 +245,26 @@ describe("mcp tool handlers", () => {
     expect(result.content[0]!.text).toContain("@@ -1 +1 @@");
   });
 
+  it("shelve shelves opened files on a pending changelist without submitting", async () => {
+    const runner = seed();
+    const ctx = makeCtx(runner);
+    await ctx.client.edit(["/ws/a.c"], { changelist: "812" });
+
+    const result = await shelve(ctx, { change: "812" });
+    expect(result.isError).not.toBe(true);
+    expect(result.content[0]!.text).toContain(
+      "Shelved 1 file(s) on change 812 for human review (not submitted).",
+    );
+    expect(result.content[0]!.text).toContain("//depot/a.c");
+    expect(
+      runner.state.shelvedChangelists?.some(
+        (item) =>
+          item.change === "812" &&
+          item.files.some((file) => file.depotFile === "//depot/a.c"),
+      ),
+    ).toBe(true);
+  });
+
   it("assetInfo withholds bytes for a binary asset", async () => {
     const result = await assetInfo(makeCtx(seed()), {
       path: "/ws/Hero.uasset",
@@ -275,5 +306,90 @@ describe("mcp tool handlers", () => {
     const result = await search(makeCtx(seed(), searcher), { query: "dash" });
     expect(result.content[0]!.text).toContain("hero.cpp");
     expect(result.content[0]!.text).not.toContain("Hero.uasset");
+  });
+
+  describe("policyInfo", () => {
+    const prevPolicyEnv = process.env.P4PILOT_POLICY;
+
+    afterEach(() => {
+      if (prevPolicyEnv === undefined) {
+        delete process.env.P4PILOT_POLICY;
+      } else {
+        process.env.P4PILOT_POLICY = prevPolicyEnv;
+      }
+    });
+
+    it("returns sorted allowedActions and submit boundary for default policy", async () => {
+      delete process.env.P4PILOT_POLICY;
+      const result = await policyInfo(makeCtx(seed()));
+      const body = JSON.parse(result.content[0]!.text) as {
+        policyName: string;
+        allowedActions: string[];
+        protectBinaryAssets: boolean;
+        pathAllowlist?: string[];
+        submitAllowed: boolean;
+        hasSubmitTool: boolean;
+        policyEnv?: string;
+      };
+
+      expect(body.policyName).toBe("default");
+      expect(body.allowedActions).toEqual(
+        [...DEFAULT_SAFETY_POLICY.allowedActions].sort(),
+      );
+      expect(body.protectBinaryAssets).toBe(false);
+      expect(body.pathAllowlist).toBeUndefined();
+      expect(body.submitAllowed).toBe(false);
+      expect(body.hasSubmitTool).toBe(false);
+      expect(body.policyEnv).toBeUndefined();
+    });
+
+    it("includes pathAllowlist and policyEnv when present", async () => {
+      process.env.P4PILOT_POLICY = "restricted-agent";
+      const policy = withPathAllowlist(RESTRICTED_AGENT_POLICY, [
+        "//depot/src",
+      ]);
+      const result = await policyInfo(
+        makeCtx(
+          seed(),
+          async () => [],
+          new StaticAssetDependencyProvider("empty", []),
+          policy,
+        ),
+      );
+      const body = JSON.parse(result.content[0]!.text) as {
+        policyName: string;
+        pathAllowlist: string[];
+        protectBinaryAssets: boolean;
+        policyEnv: string;
+        submitAllowed: boolean;
+        hasSubmitTool: boolean;
+      };
+
+      expect(body.policyName).toBe("restricted-agent");
+      expect(body.pathAllowlist).toEqual(["//depot/src"]);
+      expect(body.protectBinaryAssets).toBe(true);
+      expect(body.policyEnv).toBe("restricted-agent");
+      expect(body.submitAllowed).toBe(false);
+      expect(body.hasSubmitTool).toBe(false);
+    });
+
+    it("works under read-only policy (action maps to read)", async () => {
+      const result = await policyInfo(
+        makeCtx(
+          seed(),
+          async () => [],
+          new StaticAssetDependencyProvider("empty", []),
+          READ_ONLY_POLICY,
+        ),
+      );
+      const body = JSON.parse(result.content[0]!.text) as {
+        policyName: string;
+        allowedActions: string[];
+      };
+      expect(body.policyName).toBe("read-only");
+      expect(body.allowedActions).toEqual(
+        [...READ_ONLY_POLICY.allowedActions].sort(),
+      );
+    });
   });
 });

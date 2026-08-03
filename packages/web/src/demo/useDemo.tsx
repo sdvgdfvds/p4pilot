@@ -10,9 +10,11 @@ import {
 import { DemoStore } from "./store.js";
 import type {
   AssetInfoData,
+  AuditEvent,
   BackendConnection,
   FileView,
   P4PilotBackend,
+  PolicyInfo,
   ReviewData,
 } from "../backend/types.js";
 import type { ChangelistSummary } from "@p4pilot/core/browser";
@@ -23,6 +25,7 @@ export const operationKey = {
   assetInfo: (path: string) => `asset-info:${path}`,
   review: (change: string) => `review:${change}`,
   createChangelist: "create-changelist",
+  listAudit: "list-audit",
 } as const;
 
 interface DemoContextValue {
@@ -30,6 +33,7 @@ interface DemoContextValue {
   changelists: ChangelistSummary[];
   ready: boolean;
   connection: BackendConnection | null;
+  policy: PolicyInfo | null;
   error: string | null;
   pending: readonly string[];
   clearError: () => void;
@@ -38,6 +42,7 @@ interface DemoContextValue {
   revert: (clientFile: string) => Promise<boolean>;
   inspectAsset: (path: string) => Promise<AssetInfoData | undefined>;
   loadReview: (change: string) => Promise<ReviewData | undefined>;
+  listAuditEvents: (limit?: number) => Promise<AuditEvent[] | undefined>;
 }
 
 const DemoContext = createContext<DemoContextValue | null>(null);
@@ -58,15 +63,20 @@ export function DemoProvider({
   const [changelists, setChangelists] = useState<ChangelistSummary[]>([]);
   const [ready, setReady] = useState(false);
   const [connection, setConnection] = useState<BackendConnection | null>(null);
+  const [policy, setPolicy] = useState<PolicyInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<readonly string[]>([]);
   const pendingRef = useRef(new Set<string>());
 
   const refresh = useCallback(async () => {
-    const snapshot = await store.getWorkspace();
+    const [snapshot, nextPolicy] = await Promise.all([
+      store.getWorkspace(),
+      store.getPolicy(),
+    ]);
     setFiles(snapshot.files);
     setChangelists(snapshot.changelists);
     setConnection(snapshot.connection);
+    setPolicy(nextPolicy);
   }, [store]);
 
   const runOperation = useCallback(
@@ -97,6 +107,7 @@ export function DemoProvider({
       .catch((refreshError: unknown) => {
         if (active) {
           setConnection(null);
+          setPolicy(null);
           setError(errorMessage(refreshError));
         }
       })
@@ -160,12 +171,18 @@ export function DemoProvider({
       runOperation(operationKey.review(change), () => store.review(change)),
     [runOperation, store],
   );
+  const listAuditEvents = useCallback(
+    (limit?: number) =>
+      runOperation(operationKey.listAudit, () => store.listAuditEvents(limit)),
+    [runOperation, store],
+  );
 
   const value: DemoContextValue = {
     files,
     changelists,
     ready,
     connection,
+    policy,
     error,
     pending,
     clearError: () => setError(null),
@@ -174,6 +191,7 @@ export function DemoProvider({
     revert,
     inspectAsset,
     loadReview,
+    listAuditEvents,
   };
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;

@@ -4,8 +4,12 @@ import { join, resolve } from "node:path";
 
 import {
   DEFAULT_ASSET_GUARD_CONFIG,
+  DEFAULT_SAFETY_POLICY,
+  MemoryAuditSink,
   P4Client,
+  READ_ONLY_POLICY,
   type P4PilotConfig,
+  type SafetyPolicy,
 } from "@p4pilot/core";
 import { MockP4Runner } from "@p4pilot/core/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -62,16 +66,24 @@ describe("localhost host service", () => {
     }
   });
 
-  async function start() {
+  async function start(opts?: {
+    policy?: SafetyPolicy;
+    audit?: MemoryAuditSink;
+    actor?: string;
+  }) {
     const webRoot = mkdtempSync(join(tmpdir(), "p4pilot-web-"));
     dirs.push(webRoot);
     writeFileSync(join(webRoot, "index.html"), "<main>p4pilot host</main>");
     const runner = seed();
+    const audit = opts?.audit ?? new MemoryAuditSink();
     const server = createHostServer({
       client: new P4Client(runner),
       config,
       webRoot,
       mode: "live",
+      policy: opts?.policy ?? DEFAULT_SAFETY_POLICY,
+      audit,
+      actor: opts?.actor,
     });
     await new Promise<void>((resolve) =>
       server.listen(0, "127.0.0.1", resolve),
@@ -85,6 +97,7 @@ describe("localhost host service", () => {
       close: () =>
         new Promise<void>((resolve) => server.close(() => resolve())),
       runner,
+      audit,
     };
   }
 
@@ -143,6 +156,107 @@ describe("localhost host service", () => {
       await expect(missing.json()).resolves.toMatchObject({
         error: { code: "ASSET_NOT_FOUND" },
       });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("denies smart-edit under read-only policy with 403 POLICY_DENIED and audit deny", async () => {
+    const audit = new MemoryAuditSink();
+    const host = await start({
+      policy: READ_ONLY_POLICY,
+      audit,
+      actor: "host-test",
+    });
+    try {
+      const response = await fetch(`${host.baseUrl}/api/smart-edit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path: "/ws/a.c" }),
+      });
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toMatchObject({
+        error: { code: "POLICY_DENIED" },
+      });
+      const events = audit.tail();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        tool: "host.smart-edit",
+        action: "edit",
+        decision: "deny",
+        actor: "host-test",
+        paths: ["/ws/a.c"],
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("records audit success for smart-edit and exposes events via GET /api/audit", async () => {
+    const audit = new MemoryAuditSink();
+    // Seed file is already opened; smart-edit on a non-opened path for a clean success.
+    const host = await start({ policy: DEFAULT_SAFETY_POLICY, audit });
+    try {
+      const edit = await fetch(`${host.baseUrl}/api/smart-edit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path: "/ws/Hero.uasset" }),
+      });
+      expect(edit.ok).toBe(true);
+
+      const auditResponse = await fetch(`${host.baseUrl}/api/audit?limit=50`);
+      expect(auditResponse.ok).toBe(true);
+      const body = (await auditResponse.json()) as {
+        events: Array<Record<string, unknown>>;
+      };
+      expect(body.events.length).toBeGreaterThanOrEqual(1);
+      expect(body.events[body.events.length - 1]).toMatchObject({
+        tool: "host.smart-edit",
+        action: "edit",
+        decision: "success",
+        paths: ["/ws/Hero.uasset"],
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("exposes the active safety policy via GET /api/policy (read-only)", async () => {
+    const host = await start({
+      policy: {
+        ...READ_ONLY_POLICY,
+        pathAllowlist: ["//depot/src", "//depot/tools"],
+      },
+    });
+    try {
+      const response = await fetch(`${host.baseUrl}/api/policy`);
+      expect(response.ok).toBe(true);
+      await expect(response.json()).resolves.toEqual({
+        name: "read-only",
+        allowedActions: ["read", "changelist_list", "audit_tail"],
+        protectBinaryAssets: true,
+        pathAllowlist: ["//depot/src", "//depot/tools"],
+        submitAllowed: false,
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("serializes unset pathAllowlist as null on GET /api/policy", async () => {
+    const host = await start({ policy: DEFAULT_SAFETY_POLICY });
+    try {
+      const body = await fetch(`${host.baseUrl}/api/policy`).then((r) =>
+        r.json(),
+      );
+      expect(body).toMatchObject({
+        name: "default",
+        protectBinaryAssets: false,
+        pathAllowlist: null,
+        submitAllowed: false,
+      });
+      expect(body.allowedActions).toContain("edit");
+      expect(body.allowedActions).not.toContain("submit");
     } finally {
       await host.close();
     }

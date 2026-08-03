@@ -131,7 +131,53 @@ select:focus-visible {
 }
 
 .header-actions {
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.policy-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: min(100%, 420px);
+}
+
+.policy-badge,
+.policy-submit-blocked,
+.policy-allowlist {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.policy-badge {
+  color: #d9efe3;
+  background: #1d4d38;
+  border: 1px solid #2f7a56;
+}
+
+.policy-submit-blocked {
+  color: #f8d7d4;
+  background: #5a221e;
+  border: 1px solid #a33d35;
+}
+
+.policy-allowlist {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #c9d5e1;
+  background: #24303c;
+  border: 1px solid #3d4c5c;
 }
 
 .runtime-status {
@@ -632,9 +678,73 @@ select:disabled {
   font-size: 12px;
 }
 
-.review-heading {
+.review-heading,
+.audit-heading {
   align-items: flex-end;
 }
+
+.audit-table-shell {
+  background: #ffffff;
+  border: 1px solid #d7dde3;
+  border-radius: 6px;
+}
+
+.audit-table-shell table {
+  min-width: 820px;
+}
+
+.audit-table-shell th:nth-child(1) {
+  width: 170px;
+}
+.audit-table-shell th:nth-child(2) {
+  width: 100px;
+}
+.audit-table-shell th:nth-child(3) {
+  width: 140px;
+}
+.audit-table-shell th:nth-child(4) {
+  width: 110px;
+}
+.audit-table-shell th:nth-child(5) {
+  width: auto;
+}
+
+.audit-time {
+  color: #53606d;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.audit-tool,
+.audit-action {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.audit-reason {
+  color: #3b4854;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.badge.audit-decision.success,
+.badge.audit-decision.allow {
+  color: #1d6542;
+  background: #e7f4ed;
+  border-color: #b8dfc9;
+}
+.badge.audit-decision.deny {
+  color: #8a2c2c;
+  background: #fdeaea;
+  border-color: #f0c0c0;
+}
+.badge.audit-decision.error {
+  color: #855b12;
+  background: #fff5dc;
+  border-color: #ecd394;
+}
+
 .review-picker {
   width: min(100%, 430px);
   display: grid;
@@ -812,7 +922,8 @@ select:disabled {
     padding-top: 20px;
   }
   .section-heading,
-  .review-heading {
+  .review-heading,
+  .audit-heading {
     align-items: stretch;
     flex-direction: column;
     gap: 14px;

@@ -410,3 +410,134 @@ and a registry array.
 ## Discovered follow-ups
 
 _(Agents: append out-of-scope findings here instead of implementing them.)_
+
+- `p4_shelve` (feat/mcp-shelve): agent-facing shelf create for human review is
+  shipped; optional follow-ups if needed later — shelve delete (`p4 shelve -d`)
+  as a restricted cleanup tool, and partial-path policy when `pathAllowlist` is
+  set without explicit `paths` (today shelve-by-CL alone is allowed).
+
+---
+
+## Milestone: Agent runtime safety
+
+Branch: `feat/agent-runtime-safety`. Authoritative interfaces: `docs/SPEC.md`
+§4.11–§4.12, §5.1.1, §5.2 (`p4_audit_tail`). Security narrative:
+`docs/SECURITY.md`.
+
+**Constraints:**
+
+- Still **no** `p4_submit` tool or host submit route.
+- Submit is always denied by `checkPolicy` (hard product boundary).
+- Document honesty: shell + valid high-privilege creds bypass p4pilot; production
+  needs restricted P4 user + server-side submit deny.
+- TDD offline only (`MockP4Runner` / `MemoryAuditSink`). Do not invent APIs
+  outside the SPEC contract.
+
+### Task A: Core safety policy
+
+**Files:** `packages/core/src/policy.ts`, `packages/core/test/policy.test.ts` /
+`policy-audit.test.ts`; export from `src/index.ts`; `POLICY_DENIED` on
+`P4PilotErrorCode`.
+
+- [x] **Step 1–3** — `PolicyAction`, `SafetyPolicy`, three presets,
+      `checkPolicy` / `assertPolicyAllowed` per SPEC §4.11 (submit hard-deny;
+      restricted denies delete/sync; read-only is inspection-only).
+- [ ] **Step 4** — Align any divergent unit tests with SPEC; typecheck + tests
+      green; commit if not already: `feat(core): add SafetyPolicy presets and POLICY_DENIED`.
+
+### Task B: Core audit
+
+**Files:** `packages/core/src/audit.ts`, tests; barrel export.
+
+- [x] **Step 1–3** — `AuditEvent`, `AuditSink.record`/`tail`, `MemoryAuditSink`,
+      `createAuditEvent` per SPEC §4.12.
+- [ ] **Step 4** — Ensure tests use `record`/`tail` (not obsolete names);
+      commit if needed: `feat(core): add AuditEvent sink and MemoryAuditSink`.
+
+### Task C: MCP ToolContext + tool gates
+
+**Files:** `packages/mcp-server/src/{tools,safe-tool,core-factory}.ts`, tests.
+
+- [x] **Step 1–3** — `ToolContext.policy` + `audit` required; `withPolicyAndAudit`
+      on every tool; `P4PILOT_POLICY` via `resolveSafetyPolicy`.
+- [ ] **Step 4** — Coverage for deny/success audit paths and unknown policy env;
+      commit if needed: `feat(mcp): enforce SafetyPolicy and audit on tools`.
+
+### Task D: `p4_audit_tail` tool
+
+**Files:** `tools.ts` registration + tests.
+
+- [x] **Step 1–3** — Tool registered; returns `JSON.stringify(events, null, 2)`;
+      input `limit` positive int max 500; still no `p4_submit`.
+- [ ] **Step 4** — Integration asserts `listTools` includes `p4_audit_tail`;
+      commit if needed: `feat(mcp): add p4_audit_tail tool`.
+
+### Task E: Docs & example (this milestone’s doc track)
+
+- [x] `docs/SPEC.md` — §4.11 policy, §4.12 audit, ToolContext, `p4_audit_tail`.
+- [x] `docs/SECURITY.md` — product boundary, dual control, audit, shell bypass,
+      studio embed recommendation.
+- [x] `docs/HANDOFF.md` — branch status for agent-runtime-safety.
+- [x] `docs/PLAN.md` — this milestone checklist.
+- [x] `docs/TOOLS.md` — `p4_audit_tail` + `POLICY_DENIED`.
+- [x] `examples/restricted-agent/README.md` — restricted profile + restricted
+      P4 user (conceptual).
+
+### Task F: Offline safety bench
+
+**Files:** `packages/mcp-server/test/bench-safety.test.ts`, `docs/BENCH.md`.
+
+- [x] **Bench suite** — offline `MockP4Runner` + `MemoryAuditSink` scenarios:
+      submit invariant (no `p4_submit` / always deny), restricted deny delete &
+      binary edit, restricted allow text smart_edit, `p4_audit_tail` JSON
+      events, read-only blocks changelist create.
+- [x] **`docs/BENCH.md`** — what the bench covers, how to run, studio-trust
+      meaning of green.
+
+### Follow-ups (audit durability / host)
+
+- [x] **JSONL audit sink** — `JsonlFileAuditSink` + `P4PILOT_AUDIT_LOG` /
+      `createAuditSinkFromEnv`; `MemoryAuditSink` remains default.
+- [x] **Host audit surface** — host HTTP mutations use policy + audit;
+      `GET /api/audit` for local dashboards.
+- [x] Publish bench as a named CI job / package script if useful for studios.
+      (`npm run test:bench-safety` + CI job `safety-bench`).
+- [x] Restricted Helix user + server-side submit deny scripts for real-demo
+      (outside pure mock CI).
+
+### Definition of done (implementation)
+
+- [x] Core + MCP tests fully green offline (including policy/audit suites).
+- [x] No `p4_submit` anywhere in the MCP/HTTP surface.
+- [x] Offline bench-safety suite green (`bench-safety.test.ts`).
+- [x] SPEC, SECURITY, TOOLS, and restricted-agent example match shipped names.
+
+---
+
+## Milestone: post-safety polish
+
+Small follow-ups after the agent-runtime-safety round (no new MCP tools unless
+already on the base branch). Keep CI useful and docs honest.
+
+### Coverage gate
+
+- [x] Root `vitest.config.ts` global floors: statements/lines/functions **80%**,
+      branches **55%** (safe below overall ~85% stmts; Vitest fails on miss).
+- [x] CI Node 22 step runs `npm run test:coverage` as the coverage gate.
+- [x] Document floors + command in `CONTRIBUTING.md` (and CI step comment).
+
+### Docs polish (this round)
+
+- [x] `CHANGELOG.md` [Unreleased]: policy presets, path allowlist, JSONL audit,
+      Audit UI, bench CI, Helix templates, `p4_policy_info`, `p4_shelve`,
+      host `/api/policy`.
+- [x] `README.md`: security/policy bullets; links to `docs/SECURITY.md` and
+      `docs/BENCH.md`.
+- [x] This milestone checklist.
+
+### PR readiness (agent-runtime-safety → main)
+
+- [x] MCP tools: 21 registered; no `p4_submit` on MCP or HTTP surface.
+- [x] Offline tests green (198); `test:bench-safety` + coverage floors.
+- [x] SPEC / TOOLS / SECURITY / HANDOFF / CHANGELOG aligned to shipped names.
+- [x] Format / lint / typecheck / build clean before opening PR.
