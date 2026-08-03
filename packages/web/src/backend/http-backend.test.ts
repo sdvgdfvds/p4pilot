@@ -9,6 +9,36 @@ const json = (value: unknown, status = 200) =>
   });
 
 describe("HttpBackend", () => {
+  it("preserves the global receiver required by embedded webview fetch", async () => {
+    const windowFetch = vi.fn(function (this: unknown) {
+      if (this !== globalThis) {
+        throw new TypeError("Illegal invocation");
+      }
+      return Promise.resolve(
+        json({
+          connection: {
+            mode: "live",
+            workspace: "embedded-ws",
+            user: "alice",
+            root: "D:/ws",
+          },
+          files: [],
+          changelists: [],
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", windowFetch);
+
+    try {
+      const backend = new HttpBackend("http://127.0.0.1:4715");
+      await expect(backend.getWorkspace()).resolves.toMatchObject({
+        connection: { workspace: "embedded-ws" },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("loads workspace and converts unified review diffs for the shared UI", async () => {
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
