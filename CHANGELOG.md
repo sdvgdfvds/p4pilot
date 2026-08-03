@@ -6,6 +6,30 @@ All notable changes to p4pilot are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-03
+
+### Added
+
+- Eighteen MCP tools, including `p4_delete`, `p4_sync`, `p4_reopen`, `p4_where`,
+  and `p4_shelved_review`.
+- Unreal Asset Registry dependency traversal (`p4_asset_dependencies`) with
+  missing-record and traversal-risk reporting.
+- Shared live host UI integrations for P4V, Unreal Editor, and Maya.
+- Loopback-only `p4pilot-host` HTTP service for the shared Web frontend.
+- Click-to-start / reset Windows launchers for the P4V demo under `hosts/p4v`.
+
+### Fixed
+
+- Preserve real shelved changelist unified diffs for server-side review without
+  modifying the workspace.
+- Bind `HttpBackend` default `fetch` through `globalThis.fetch` so embedded
+  WebViews (P4V) no longer throw `Illegal invocation`.
+
+### Changed
+
+- Bump public package versions to `0.2.0` for `@p4pilot/core` and
+  `@p4pilot/mcp-server`.
+
 ## [0.1.1] - 2026-07-20
 
 ### Fixed
