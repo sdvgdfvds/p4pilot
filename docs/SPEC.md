@@ -208,6 +208,19 @@ export class P4Client {
   >;
   newChangelist(description: string): Promise<string>; // returns new CL number
   reopen(files: string[], changelist: string): Promise<OpenedFile[]>;
+  /**
+   * Shelve opened files on a pending changelist for human review.
+   * Runs `p4 shelve -c <change> [paths…]`. Does **not** submit.
+   */
+  shelve(
+    change: string,
+    opts?: { paths?: string[] },
+  ): Promise<ShelveResult>;
+}
+
+export interface ShelveResult {
+  change: string;
+  files: OpenedFile[]; // shelved file list; count = files.length
 }
 ```
 
@@ -218,6 +231,10 @@ diff text when `-ztag` is present, so it then runs untagged
 Neither call syncs, unshelves, or otherwise changes the workspace. A successful
 metadata response with no shelved files raises `NO_SHELVED_FILES`; a non-zero
 Perforce response remains `P4_COMMAND_FAILED`.
+
+`shelve` runs `p4 shelve -c <change>` (optionally limited to `paths`). It is
+the agent-safe handoff for human review — it never submits. Workspace opens
+remain open (default Helix shelve behavior).
 
 `newChangelist` uses `p4 change -i` with a generated change spec on stdin and
 parses the resulting `Change NNNN created.` message.
@@ -300,7 +317,7 @@ export function ensureOpenForEditMany(
 An in-memory fake depot implementing `P4Runner`. Seeded with a `FakeDepot`
 description; interprets a subset of `p4` subcommands (`fstat`, `opened`, `edit`,
 `add`, `delete`, `revert`, `reopen`, `sync`, `where`, `changes`, `describe`,
-`change -i`, `info`) and emits
+`change -i`, `shelve`, `info`) and emits
 **real -ztag-formatted stdout** so it exercises the same parser as production.
 
 ```ts
@@ -448,6 +465,7 @@ export type PolicyAction =
   | "reopen"
   | "changelist_create"
   | "changelist_list"
+  | "shelve"
   | "submit"
   | "audit_tail";
 
@@ -486,9 +504,10 @@ export interface PolicyCheckResult {
 export const DEFAULT_SAFETY_POLICY: SafetyPolicy;
 
 /**
- * Restricted agent: prepare edits/changelists; no delete, sync, or submit.
+ * Restricted agent: prepare edits/changelists (including shelve for human
+ * review); no delete, sync, or submit.
  * Allows: read, edit, add, revert, reopen, changelist_create, changelist_list,
- * audit_tail. `protectBinaryAssets: true`.
+ * shelve, audit_tail. `protectBinaryAssets: true`.
  */
 export const RESTRICTED_AGENT_POLICY: SafetyPolicy;
 
@@ -554,11 +573,11 @@ Studios layer sandbox prefixes with `withPathAllowlist` or via MCP env
 
 Preset summary:
 
-| Preset                    | `name`             | Allows (conceptually)             | Always denies              | `pathAllowlist` |
-| ------------------------- | ------------------ | --------------------------------- | -------------------------- | --------------- |
-| `DEFAULT_SAFETY_POLICY`   | `default`          | All non-submit actions            | `submit`                   | undefined       |
-| `RESTRICTED_AGENT_POLICY` | `restricted-agent` | prepare + review (no delete/sync) | `submit`, `delete`, `sync` | undefined       |
-| `READ_ONLY_POLICY`        | `read-only`        | read / list / audit_tail          | all writes + `submit`      | undefined       |
+| Preset                    | `name`             | Allows (conceptually)                      | Always denies              | `pathAllowlist` |
+| ------------------------- | ------------------ | ------------------------------------------ | -------------------------- | --------------- |
+| `DEFAULT_SAFETY_POLICY`   | `default`          | All non-submit actions (incl. `shelve`)    | `submit`                   | undefined       |
+| `RESTRICTED_AGENT_POLICY` | `restricted-agent` | prepare + review + shelve (no delete/sync) | `submit`, `delete`, `sync` | undefined       |
+| `READ_ONLY_POLICY`        | `read-only`        | read / list / audit_tail                   | all writes + `submit`      | undefined       |
 
 ### 4.12 Audit — `src/audit.ts`
 
@@ -714,6 +733,7 @@ Tool → `PolicyAction` mapping (representative):
 | `p4_reopen`                                                                                                                                   | `reopen`            |
 | `p4_changelist_create`                                                                                                                        | `changelist_create` |
 | `p4_changelist_list`                                                                                                                          | `changelist_list`   |
+| `p4_shelve`                                                                                                                                   | `shelve`            |
 | `p4_audit_tail`                                                                                                                               | `audit_tail`        |
 
 No tool maps to `submit`.
@@ -736,6 +756,7 @@ No tool maps to `submit`.
 | `p4_describe`           | `{ change: string, diff?: boolean }`         | `client.describe`                                                                 |
 | `p4_review`             | `{ change: string }`                         | pending workspace review via `describe` with `diff:true`                          |
 | `p4_shelved_review`     | `{ change: string }`                         | server-side shelved review via `client.describeShelved`; never changes workspace  |
+| `p4_shelve`             | `{ change: string, paths?: string[] }`       | `client.shelve` — shelves pending CL for human review; does **not** submit        |
 | `p4_asset_info`         | `{ path: string }`                           | `fstat` + `classifyAsset`; returns metadata, refuses to dump binary content       |
 | `p4_asset_dependencies` | `{ path, direction?, depth? }`               | query injected UE Asset Registry provider; return links, missing assets, risks    |
 | `p4_search`             | `{ query: string, glob?: string }`           | ripgrep/grep over the client workspace, skipping binary assets via asset-guard    |
@@ -770,8 +791,9 @@ uses a bundled static graph. Without either source, the tool returns
 ### 5.6 Human submit boundary
 
 The MCP surface intentionally stops at pending and shelved changelists. It may
-create, populate, describe, and review a changelist, but it does not expose
-`p4 submit`. Submission remains a deliberate human action after review.
+create, populate, shelve, describe, and review a changelist, but it does not
+expose `p4 submit`. Shelve (`p4_shelve`) is the agent-facing prep step for
+human review; submission remains a deliberate human action after review.
 
 **Dual control:** in-process `SafetyPolicy` always denies `submit` and the MCP
 surface has no submit tool — necessary but not sufficient. An agent with

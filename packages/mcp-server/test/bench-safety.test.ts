@@ -79,7 +79,7 @@ function makeCtx(
 }
 
 describe("bench-safety (offline agent invariants)", () => {
-  it("submit_invariant: checkPolicy denies submit; no p4_submit among 19 tools", () => {
+  it("submit_invariant: checkPolicy denies submit; no p4_submit; shelve is present", () => {
     // Hard product boundary: submit is never allowed by any preset.
     for (const policy of [RESTRICTED_AGENT_POLICY, READ_ONLY_POLICY] as const) {
       const result = checkPolicy(policy, "submit");
@@ -87,15 +87,18 @@ describe("bench-safety (offline agent invariants)", () => {
       expect(result.reason).toMatch(/submit/i);
     }
 
-    // Surface contract: registerTools exposes exactly the known safe set.
-    expect(REGISTERED_TOOL_NAMES).toHaveLength(19);
+    // Surface contract: no submit tool; shelve is the agent handoff prep.
     expect(REGISTERED_TOOL_NAMES).toContain("p4_audit_tail");
+    expect(REGISTERED_TOOL_NAMES).toContain("p4_shelve");
     expect(REGISTERED_TOOL_NAMES).not.toContain("p4_submit");
     expect(
       REGISTERED_TOOL_NAMES.some((name) =>
         name.toLowerCase().includes("submit"),
       ),
     ).toBe(false);
+    // Shelve allowed under restricted-agent; denied under read-only.
+    expect(checkPolicy(RESTRICTED_AGENT_POLICY, "shelve").allowed).toBe(true);
+    expect(checkPolicy(READ_ONLY_POLICY, "shelve").allowed).toBe(false);
   });
 
   it("restricted_denies_delete: deleteFiles → POLICY_DENIED + audit deny", async () => {

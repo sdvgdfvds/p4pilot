@@ -5,7 +5,7 @@
 > workflow. In-process `SafetyPolicy` (env `P4PILOT_POLICY`) can further narrow
 > which tools an agent may call; see [`SECURITY.md`](./SECURITY.md).
 
-`@p4pilot/mcp-server` exposes **19 MCP tools** over stdio. Every tool input is
+`@p4pilot/mcp-server` exposes **20 MCP tools** over stdio. Every tool input is
 validated with [zod](https://zod.dev); every tool returns plain-text content.
 Errors come back as tool errors of the form `p4pilot error [CODE]: message`
 (see [Error codes](#error-codes)). Mutating tools run a policy check and append
@@ -274,6 +274,30 @@ Shelved diff:
 
 This tool is distinct from `p4_review`: it reads immutable shelf content from
 the server rather than unsaved edits in the current client workspace.
+
+---
+
+## `p4_shelve`
+
+Shelve opened files on a pending changelist so a human can review them on the
+server (e.g. via P4V or `p4_shelved_review`). This is the safe agent handoff
+before human submit — it **does not submit**.
+
+**Input:** `{ change: string, paths?: string[] }`
+
+- `change` — numbered pending changelist to shelve.
+- `paths` — optional subset of opened files; omit to shelve all files open on
+  that changelist.
+
+```text
+$ p4_shelve { "change": "813" }
+Shelved 1 file(s) on change 813 for human review (not submitted).
+Files:
+  edit	//depot/game/src/player.cpp
+```
+
+Under `P4PILOT_POLICY=restricted-agent`, `p4_shelve` is **allowed** (prep work).
+Under `read-only`, it is denied. There is still **no** `p4_submit` tool.
 
 ---
 

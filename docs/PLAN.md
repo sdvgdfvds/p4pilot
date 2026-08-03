@@ -411,6 +411,11 @@ and a registry array.
 
 _(Agents: append out-of-scope findings here instead of implementing them.)_
 
+- `p4_shelve` (feat/mcp-shelve): agent-facing shelf create for human review is
+  shipped; optional follow-ups if needed later — shelve delete (`p4 shelve -d`)
+  as a restricted cleanup tool, and partial-path policy when `pathAllowlist` is
+  set without explicit `paths` (today shelve-by-CL alone is allowed).
+
 ---
 
 ## Milestone: Agent runtime safety

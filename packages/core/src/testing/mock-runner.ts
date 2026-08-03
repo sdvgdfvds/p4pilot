@@ -158,6 +158,8 @@ export class MockP4Runner implements P4Runner {
         return this.runSync(commandArgs);
       case "filelog":
         return this.runFilelog(commandArgs);
+      case "shelve":
+        return this.runShelve(commandArgs);
       default:
         return failure(`Unsupported mock p4 command: ${command ?? ""}`);
     }
@@ -512,6 +514,87 @@ export class MockP4Runner implements P4Runner {
       ["desc0", "initial revision"],
     ];
     return success(formatRecords([fields]));
+  }
+
+  /**
+   * `p4 shelve -c <change> [paths…]` — copy opened files on the changelist
+   * into `shelvedChangelists`. Workspace opens are left in place (Helix
+   * default). Re-shelving the same change replaces per-file shelf entries.
+   */
+  private runShelve(args: string[]): P4Result {
+    let change: string | undefined;
+    const paths: string[] = [];
+
+    for (let index = 1; index < args.length; index += 1) {
+      const argument = args[index];
+      if (argument === undefined) {
+        continue;
+      }
+      if (argument === "-c") {
+        change = args[index + 1];
+        index += 1;
+      } else if (!argument.startsWith("-")) {
+        paths.push(argument);
+      }
+    }
+
+    if (change === undefined || change === "default") {
+      return failure("Change number required for shelve.");
+    }
+
+    const opened = this.#state.files.filter((file) => {
+      if (file.opened === undefined || file.opened.change !== change) {
+        return false;
+      }
+      if (paths.length === 0) {
+        return true;
+      }
+      return paths.some((requested) => this.matches(file, requested));
+    });
+
+    if (opened.length === 0) {
+      return failure(`No files to shelve for change ${change}.`);
+    }
+
+    const shelves = this.#state.shelvedChangelists ?? [];
+    this.#state.shelvedChangelists = shelves;
+
+    let shelf = shelves.find((item) => item.change === change);
+    if (shelf === undefined) {
+      const pending = this.#state.changelists?.find(
+        (item) => item.change === change,
+      );
+      shelf = {
+        change,
+        description: pending?.description ?? "",
+        user: this.#state.user,
+        client: this.#state.client,
+        files: [],
+      };
+      shelves.push(shelf);
+    }
+
+    for (const file of opened) {
+      const action = file.opened!.action;
+      const entry: FakeShelvedFile = {
+        depotFile: file.depotFile,
+        action,
+        rev: file.headRev,
+        type: file.headType ?? "text",
+      };
+      const existingIndex = shelf.files.findIndex(
+        (item) => item.depotFile === file.depotFile,
+      );
+      if (existingIndex === -1) {
+        shelf.files.push(entry);
+      } else {
+        shelf.files[existingIndex] = entry;
+      }
+    }
+
+    return success(
+      formatRecords(opened.map((file) => this.openedFields(file))),
+    );
   }
 
   private fileStatFields(file: FakeFile): ZtagField[] {

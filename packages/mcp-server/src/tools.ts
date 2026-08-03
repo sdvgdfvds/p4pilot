@@ -281,6 +281,27 @@ export async function shelvedReview(
   );
 }
 
+/**
+ * Shelve a pending changelist for human review. Does not submit.
+ * Safe handoff before a human reviews and submits outside p4pilot.
+ */
+export async function shelve(
+  ctx: ToolContext,
+  args: { change: string; paths?: string[] },
+): Promise<ToolResult> {
+  const result = await ctx.client.shelve(
+    args.change,
+    args.paths === undefined ? undefined : { paths: args.paths },
+  );
+  const fileLines = result.files
+    .map((file) => `  ${file.action}\t${file.depotFile}`)
+    .join("\n");
+  return ok(
+    `Shelved ${result.files.length} file(s) on change ${result.change} for human review (not submitted).\n` +
+      (fileLines.length > 0 ? `Files:\n${fileLines}` : "Files:\n  (none)"),
+  );
+}
+
 export async function assetInfo(
   ctx: ToolContext,
   args: { path: string },
@@ -398,6 +419,7 @@ export const REGISTERED_TOOL_NAMES = [
   "p4_describe",
   "p4_review",
   "p4_shelved_review",
+  "p4_shelve",
   "p4_asset_info",
   "p4_asset_dependencies",
   "p4_filelog",
@@ -636,6 +658,29 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
           changelist: args.change,
         },
         () => shelvedReview(ctx, args),
+      ),
+  );
+  server.registerTool(
+    "p4_shelve",
+    {
+      title: "Shelve changelist",
+      description:
+        "Shelve a pending changelist for human review. Does not submit; safe handoff before a human reviews and submits.",
+      inputSchema: {
+        change: z.string().min(1),
+        paths: z.array(z.string()).min(1).optional(),
+      },
+    },
+    (args) =>
+      guarded(
+        ctx,
+        {
+          tool: "p4_shelve",
+          action: "shelve",
+          paths: args.paths,
+          changelist: args.change,
+        },
+        () => shelve(ctx, args),
       ),
   );
   server.registerTool(

@@ -17,10 +17,11 @@ describe("safety policy", () => {
     expect(checkPolicy(DEFAULT_SAFETY_POLICY, "submit").allowed).toBe(false);
   });
 
-  it("restricted-agent policy denies delete and submit", () => {
+  it("restricted-agent policy denies delete and submit but allows shelve", () => {
     expect(checkPolicy(RESTRICTED_AGENT_POLICY, "edit").allowed).toBe(true);
     expect(checkPolicy(RESTRICTED_AGENT_POLICY, "delete").allowed).toBe(false);
     expect(checkPolicy(RESTRICTED_AGENT_POLICY, "submit").allowed).toBe(false);
+    expect(checkPolicy(RESTRICTED_AGENT_POLICY, "shelve").allowed).toBe(true);
   });
 
   it("read-only policy allows read and denies edit", () => {

@@ -89,4 +89,23 @@ describe("MockP4Runner", () => {
     expect(diff.stdout).toContain("==== //depot/a.c#1 (text) ====");
     expect(diff.stdout).toContain("+++ //depot/a.c@=44");
   });
+  it("shelve copies opened files into shelvedChangelists", async () => {
+    const m = seed();
+    await m.run(["edit", "-c", "55", "/ws/a.c"]);
+    const result = await m.run(["shelve", "-c", "55"]);
+    expect(result.exitCode).toBe(0);
+    expect(parseZtag(result.stdout)[0]!.get("depotFile")).toBe("//depot/a.c");
+    expect(m.state.files[0]!.opened).toEqual({ action: "edit", change: "55" });
+    const shelf = m.state.shelvedChangelists?.find(
+      (item) => item.change === "55",
+    );
+    expect(shelf?.files).toEqual([
+      {
+        depotFile: "//depot/a.c",
+        action: "edit",
+        rev: 1,
+        type: "text",
+      },
+    ]);
+  });
 });

@@ -16,6 +16,7 @@ export type PolicyAction =
   | "reopen"
   | "changelist_create"
   | "changelist_list"
+  | "shelve"
   | "submit"
   | "audit_tail";
 
@@ -59,6 +60,7 @@ const ALL_EXCEPT_SUBMIT: readonly PolicyAction[] = [
   "reopen",
   "changelist_create",
   "changelist_list",
+  "shelve",
   "audit_tail",
 ];
 
@@ -87,9 +89,9 @@ export const DEFAULT_SAFETY_POLICY: SafetyPolicy = {
 };
 
 /**
- * Restricted agent policy: agents may prepare edits/changelists but cannot
- * delete, sync (workspace-wide mutation), or submit. Binary/large assets are
- * protected from open-for-edit.
+ * Restricted agent policy: agents may prepare edits/changelists (including
+ * shelving for human review) but cannot delete, sync (workspace-wide
+ * mutation), or submit. Binary/large assets are protected from open-for-edit.
  */
 export const RESTRICTED_AGENT_POLICY: SafetyPolicy = {
   name: "restricted-agent",
@@ -101,6 +103,7 @@ export const RESTRICTED_AGENT_POLICY: SafetyPolicy = {
     "reopen",
     "changelist_create",
     "changelist_list",
+    "shelve",
     "audit_tail",
   ]),
   protectBinaryAssets: true,
