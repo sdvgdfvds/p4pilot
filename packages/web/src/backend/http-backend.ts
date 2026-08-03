@@ -2,6 +2,7 @@ import type { DescribeResult } from "@p4pilot/core/browser";
 import type { DiffRow } from "../diff.js";
 import type {
   AssetInfoData,
+  AuditEvent,
   P4PilotBackend,
   ReviewData,
   WorkspaceSnapshot,
@@ -100,6 +101,15 @@ export class HttpBackend implements P4PilotBackend {
         rows: rowsForFile(result.diff, file.depotFile, result.files.length),
       })),
     };
+  }
+
+  async listAuditEvents(limit?: number): Promise<AuditEvent[]> {
+    const query =
+      limit === undefined ? "" : `?limit=${encodeURIComponent(String(limit))}`;
+    const body = await this.#request<{ events: AuditEvent[] }>(
+      `/api/audit${query}`,
+    );
+    return body.events;
   }
 
   async #request<T>(path: string, init?: RequestInit): Promise<T> {

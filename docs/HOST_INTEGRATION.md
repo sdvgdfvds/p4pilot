@@ -22,10 +22,23 @@ The process uses `P4PORT`, `P4USER`, and `P4CLIENT` from its environment. Add
 `--mock` for an offline host demonstration. Health is available at
 `http://127.0.0.1:4715/api/health`.
 
-The UI displays pending changelists, opened files, safe asset metadata, and
-review diffs. Smart checkout, revert, and changelist creation use the same core
-workflows as MCP. If the process or Perforce connection fails, the header reads
-`Disconnected` and the typed error appears in the page.
+The UI has three tabs: **Dashboard** (pending changelists, opened files, safe
+asset metadata, smart checkout/revert), **Review** (changelist diffs), and
+**Audit** (recent policy/tool decisions via `GET /api/audit`). Smart checkout,
+revert, and changelist creation use the same core workflows as MCP. If the
+process or Perforce connection fails, the header reads `Disconnected` and the
+typed error appears in the page.
+
+### Audit API
+
+```http
+GET /api/audit?limit=50
+```
+
+Returns `{ "events": AuditEvent[] }` (newest last). Each event includes
+`timestamp`, `decision` (`deny` | `success` | `error`), `tool`, `action`, and
+optional `message` / `paths` / `changelist`. The web Audit tab loads this
+endpoint (demo mode seeds sample allow/deny events without a host).
 
 ## P4V
 
