@@ -1,6 +1,6 @@
 # p4pilot 会话交接 / 续接指南
 
-**更新时间**：2026-07-20
+**更新时间**：2026-08-03
 
 **仓库**：<https://github.com/sdvgdfvds/p4pilot>
 
@@ -8,20 +8,28 @@
 
 ## 当前状态
 
-p4pilot 的 MVP 和 Phase 2 浏览器 Demo 已在 `main`。产品化收尾位于
-`feat/product-ready`，合并后即具备完整的格式、lint、coverage、测试、构建和
-npm pack 门禁。GitHub Actions CI 和 GitHub Pages 部署已启用。
+p4pilot 的下一阶段 Roadmap（PR #5）、一键 P4V 演示（PR #6）以及 P4V WebView
+`fetch` 绑定修复（PR #7）均已合并到 `main`。`release/v0.2.0` 基于最新 `main`
+准备公开包 `0.2.0` release candidate，具备完整的格式、lint、coverage、测试、
+构建和 npm pack 门禁。GitHub Actions CI 和 GitHub Pages 部署已启用。
 
 已交付内容：
 
 - `@p4pilot/core`：Perforce runner、ztag parser、typed client、auto-checkout、
-  asset guard、changelist helpers，以及离线 `MockP4Runner`。
-- `@p4pilot/mcp-server`：12 个 MCP 工具；`--mock` 模式无需 Perforce。
-- npm：`@p4pilot/core@0.1.1` 与 `@p4pilot/mcp-server@0.1.1` 已公开发布。
-- `@p4pilot/web`：使用真实 core 和内存假仓的浏览器 Demo，包含工作区仪表盘、
-  smart checkout、资产信息和 changelist review。
-- Web Demo 已接通 Revert、加载/错误状态、重复操作保护，并包含响应式截图。
-- 测试：根目录共 83 个用例，全部离线运行；CI 不连接真实 Perforce。
+  asset guard、shelved review、Unreal asset dependency traversal、changelist
+  helpers，以及离线 `MockP4Runner`。
+- `@p4pilot/mcp-server`：18 个 MCP 工具，并提供 loopback-only
+  `p4pilot-host`；`--mock` 模式无需 Perforce。
+- npm：registry 当前公开版本仍为 `@p4pilot/core@0.1.1` 与
+  `@p4pilot/mcp-server@0.1.1`；`0.2.0` manifests 已准备，发布需要 npm 账号授权。
+- `@p4pilot/web`：统一的 mock/HTTP backend 界面，包含工作区仪表盘、smart
+  checkout、资产信息、错误/断线状态和 changelist review。HttpBackend 默认
+  fetcher 通过 `globalThis.fetch` 绑定，避免嵌入式 WebView 的 Illegal
+  invocation。
+- 宿主：P4V HTML Tab、Unreal Editor `SWebBrowser` 插件、Maya Qt WebEngine
+  dock 都复用同一个 Web build 和本地真实后端；Windows 一键启动/重置脚本位于
+  `hosts/p4v`。
+- 测试：根目录共 119 个用例，全部离线运行；CI 不连接真实 Perforce。
 - 工程门禁：Prettier、ESLint、TypeScript、Vitest coverage、build 和 npm pack。
 
 ## 接手方式
@@ -70,19 +78,20 @@ Vitest 4 由根目录 `vitest.config.ts` 的 `test.projects` 编排。React 组�
 
 ## 合并与发布
 
-仓库内的产品化收尾和首次 npm 发布均已完成。下一步只需合并
-`feat/product-ready`，然后从合并后的 `main` 创建 `v0.1.0` Git tag / GitHub
-Release。
+PR #5、#6、#7 已合并到 `main`。`release/v0.2.0` 只更新公开包版本和发布状态；
+合并后从对应的 `main` 提交创建 `v0.2.0` Git tag / GitHub Release。npm publish
+必须使用具备 `@p4pilot` scope 权限且已启用 2FA/automation token 的账号。
 
 公开安装路径已验证：`npx @p4pilot/mcp-server --mock` 可从官方 registry 安装并
 启动服务器。
 
-## 长期 Roadmap
+## 后续产品化方向
 
-- Shelved-changelist 评审工作流。
-- UE 资产依赖浮现。
-- PC/UE/Maya WebView 嵌入。
-- 将 core 已有的 `deleteFiles`、`sync`、`reopen`、`where` 能力暴露为 MCP 工具。
+- 增加受限 Perforce 演示用户与服务端 Submit 禁止规则。
+- 增加操作审计日志和审批机制。
+- 交付真实 Unreal Asset Registry 导出 commandlet/脚本。
+- 在装有 Unreal Editor 和 Maya 的授权工作站上完成真实宿主验证。
+- 改善 MCP/HTTP 身份验证和团队部署方案。
 
 ## 已知环境注意事项
 
@@ -90,5 +99,6 @@ Release。
   时优先显式指定仓库路径。
 - GitHub 网络连接可能瞬时失败；`fetch` 或 `push` 可在确认错误为网络问题后重试。
 - 测试和 CI 必须保持完全离线，不得依赖 `p4` binary、Perforce server 或网络。
+- 本机 npm 可能未登录（`npm whoami` 返回 `ENEEDAUTH`）；发布前需要先授权。
 
 提交使用 Conventional Commits，并保持一次提交只处理一个明确问题。
