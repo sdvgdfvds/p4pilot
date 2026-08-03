@@ -6,6 +6,7 @@ import {
   P4Client,
   READ_ONLY_POLICY,
   RESTRICTED_AGENT_POLICY,
+  withPathAllowlist,
   type AuditSink,
   type P4PilotConfig,
   type SafetyPolicy,
@@ -31,23 +32,48 @@ function cleanEnv(env: P4PilotConfig["env"]): Record<string, string> {
 }
 
 /**
- * Resolve {@link SafetyPolicy} from `P4PILOT_POLICY`.
- * Accepted values: `default` (default), `restricted-agent`, `read-only`.
+ * Parse `P4PILOT_PATH_ALLOWLIST`: comma- and/or semicolon-separated prefixes.
+ * Empty / whitespace-only → undefined (no path restriction).
+ */
+export function parsePathAllowlistEnv(
+  raw: string | undefined,
+): readonly string[] | undefined {
+  if (raw === undefined) return undefined;
+  const parts = raw
+    .split(/[,;]/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  return parts.length > 0 ? parts : undefined;
+}
+
+/**
+ * Resolve {@link SafetyPolicy} from `P4PILOT_POLICY` and optional
+ * `P4PILOT_PATH_ALLOWLIST`.
+ * Accepted policy values: `default` (default), `restricted-agent`, `read-only`.
  */
 export function resolveSafetyPolicy(env: NodeJS.ProcessEnv): SafetyPolicy {
   const raw = (env.P4PILOT_POLICY ?? "default").trim().toLowerCase();
+  let base: SafetyPolicy;
   switch (raw) {
     case "default":
-      return DEFAULT_SAFETY_POLICY;
+      base = DEFAULT_SAFETY_POLICY;
+      break;
     case "restricted-agent":
-      return RESTRICTED_AGENT_POLICY;
+      base = RESTRICTED_AGENT_POLICY;
+      break;
     case "read-only":
-      return READ_ONLY_POLICY;
+      base = READ_ONLY_POLICY;
+      break;
     default:
       throw new Error(
         `unknown P4PILOT_POLICY "${env.P4PILOT_POLICY}" (expected default | restricted-agent | read-only)`,
       );
   }
+  const prefixes = parsePathAllowlistEnv(env.P4PILOT_PATH_ALLOWLIST);
+  if (prefixes === undefined) {
+    return base;
+  }
+  return withPathAllowlist(base, prefixes);
 }
 
 /**

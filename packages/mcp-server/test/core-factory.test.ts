@@ -61,6 +61,37 @@ describe("buildCore mock mode", () => {
     expect(restricted.policy).toBe(RESTRICTED_AGENT_POLICY);
   });
 
+  it("applies P4PILOT_PATH_ALLOWLIST onto the resolved preset", () => {
+    const withList = resolveSafetyPolicy({
+      P4PILOT_POLICY: "restricted-agent",
+      P4PILOT_PATH_ALLOWLIST: "//depot/sandbox,//depot/tools",
+    });
+    expect(withList.name).toBe("restricted-agent");
+    expect(withList.pathAllowlist).toEqual([
+      "//depot/sandbox",
+      "//depot/tools",
+    ]);
+    // Not the frozen preset reference once allowlist is layered on.
+    expect(withList).not.toBe(RESTRICTED_AGENT_POLICY);
+
+    const empty = resolveSafetyPolicy({
+      P4PILOT_PATH_ALLOWLIST: "  ,  ",
+    });
+    expect(empty).toBe(DEFAULT_SAFETY_POLICY);
+    expect(empty.pathAllowlist).toBeUndefined();
+
+    const semi = resolveSafetyPolicy({
+      P4PILOT_PATH_ALLOWLIST: "//depot/a;//depot/b",
+    });
+    expect(semi.pathAllowlist).toEqual(["//depot/a", "//depot/b"]);
+
+    const built = buildCore(["--mock"], {
+      P4PILOT_POLICY: "default",
+      P4PILOT_PATH_ALLOWLIST: "//depot/sandbox",
+    });
+    expect(built.policy.pathAllowlist).toEqual(["//depot/sandbox"]);
+  });
+
   it("uses JsonlFileAuditSink when P4PILOT_AUDIT_LOG is set", () => {
     const dir = mkdtempSync(join(tmpdir(), "p4pilot-audit-"));
     const filePath = join(dir, "audit.jsonl");

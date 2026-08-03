@@ -19,7 +19,7 @@ Agent safety needs **two** independent layers:
 
 | Layer                                            | What it is                                                                                                                                | What it stops                                                                                                                   |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Tool policy** (`@p4pilot/core` `SafetyPolicy`) | In-process allow/deny on MCP tool actions (`submit` always denied; presets via `P4PILOT_POLICY`)                                          | Misbehaving or over-eager agents calling p4pilot tools (e.g. delete/sync under `restricted-agent`) outside the selected profile |
+| **Tool policy** (`@p4pilot/core` `SafetyPolicy`) | In-process allow/deny on MCP tool actions (`submit` always denied; presets via `P4PILOT_POLICY`; optional sandbox via `pathAllowlist` / `P4PILOT_PATH_ALLOWLIST`) | Misbehaving or over-eager agents calling p4pilot tools (e.g. delete/sync under `restricted-agent`, or edits outside a sandbox prefix) |
 | **Helix protections**                            | Restricted P4 user, group permissions, server-side **submit deny** (protections / triggers / permissions as your admin standard requires) | Any client that still holds tickets — including shell `p4 submit` outside p4pilot                                               |
 
 **Both** are required in production. Tool policy alone is not a security
@@ -63,6 +63,9 @@ Mitigations that actually work:
   MCP tools are needed.
 - Use `P4PILOT_POLICY=restricted-agent` or `read-only` so even the MCP surface
   is narrowed for demos and less-trusted sessions.
+- Optionally set `P4PILOT_PATH_ALLOWLIST` (comma/semicolon-separated depot or
+  client path prefixes) so mutating tools cannot touch paths outside a studio
+  sandbox — complementary to Helix path protections, not a substitute.
 
 ## Recommended studio embed
 
@@ -71,7 +74,8 @@ Mitigations that actually work:
 1. Coding agent talks to `p4pilot-mcp` over MCP (auto-checkout, changelists,
    review tools).
 2. Policy preset: `restricted-agent` for demos / junior agents; `default` for
-   trusted internal agents that still must not submit via tools.
+   trusted internal agents that still must not submit via tools. Optionally
+   set `P4PILOT_PATH_ALLOWLIST` to the agent sandbox depot prefixes.
 3. P4 identity: dedicated service or bot user with **no submit** permission.
 4. Human opens P4V (or studio-approved UI), reviews the pending changelist, and
    submits with a **human** account that _does_ have submit rights.

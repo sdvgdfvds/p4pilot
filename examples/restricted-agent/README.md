@@ -25,6 +25,7 @@ Environment variable (read at MCP server startup):
 
 ```text
 P4PILOT_POLICY=default | restricted-agent | read-only
+P4PILOT_PATH_ALLOWLIST=//depot/sandbox,//depot/tools   # optional
 ```
 
 | Value                | Maps to (`@p4pilot/core`) | Typical use                                            |
@@ -32,6 +33,12 @@ P4PILOT_POLICY=default | restricted-agent | read-only
 | `default` (or unset) | `DEFAULT_SAFETY_POLICY`   | Trusted internal agents; submit still hard-denied      |
 | `restricted-agent`   | `RESTRICTED_AGENT_POLICY` | Demos, contractors — edit/add/CL ok; no delete/sync    |
 | `read-only`          | `READ_ONLY_POLICY`        | Inspection + review tools only (`read` / list / audit) |
+
+Optional **path allowlist** (`P4PILOT_PATH_ALLOWLIST`): comma- or
+semicolon-separated prefixes. When set, path-based mutations must supply paths
+under at least one prefix (layered on top of the preset — e.g. delete is still
+denied under `restricted-agent` even on an allowlisted path). Unset = no extra
+path restriction. Pair with Helix path protections for real enforcement.
 
 Details: [`docs/SPEC.md`](../../docs/SPEC.md) §4.11 and [`docs/SECURITY.md`](../../docs/SECURITY.md).
 
@@ -47,6 +54,7 @@ claude mcp add p4pilot-restricted-mock -- \
 # Real workspace: pass policy + connection via the host environment
 # (illustrative names only — use your studio's values)
 export P4PILOT_POLICY=restricted-agent
+export P4PILOT_PATH_ALLOWLIST=//depot/sandbox
 export P4PORT=ssl:perforce.example.invalid:1666
 export P4CLIENT=agent-demo-ws
 export P4USER=p4pilot-agent   # restricted bot user, not a human submitter
